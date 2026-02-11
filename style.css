@@ -203,4 +203,39 @@ li:hover {
     outline: none;
 }
 
+/* Container do Equalizador */
+.now-playing-equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 13px;
+  height: 13px;
+  margin-left: 8px;
+}
+
+/* As Barrinhas */
+.now-playing-equalizer span {
+  width: 3px;
+  background-color: #ff5500; /* Cor padrão SoundCloud, mude se quiser */
+  border-radius: 1px;
+  animation: bounce 0.5s ease-in-out infinite alternate;
+}
+
+/* Alturas e velocidades diferentes para parecer real */
+.now-playing-equalizer span:nth-child(1) { height: 100%; animation-duration: 0.4s; }
+.now-playing-equalizer span:nth-child(2) { height: 60%; animation-duration: 0.2s; }
+.now-playing-equalizer span:nth-child(3) { height: 80%; animation-duration: 0.3s; }
+
+@keyframes bounce {
+  from { height: 20%; }
+  to { height: 100%; }
+}
+
+/* Estilo para a faixa ativa na playlist */
+.active-track {
+  background: rgba(255, 85, 0, 0.1); /* Um fundo leve */
+  color: #ff5500 !important;
+  font-weight: bold;
+}
+
 
