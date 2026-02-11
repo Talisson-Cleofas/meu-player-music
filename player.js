@@ -1,33 +1,34 @@
+// 1. Referências ao Widget e Variáveis de Controle
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 
 let playlist = [];
 let currentTrackIndex = 0;
 
-// 1. CONFIGURAÇÃO INICIAL
+// 2. Inicialização do Player
 widget.bind(SC.Widget.Events.READY, () => {
-  console.log("SoundCloud pronto");
+  console.log("SoundCloud Pronto");
   document.getElementById("status").innerText = "Pronto para tocar!";
   widget.setVolume(100);
 });
 
-// 2. O SEGREDO: Detectar quando uma música acaba e FORÇAR a próxima
+// 3. Evento para detectar quando a música termina
 widget.bind(SC.Widget.Events.FINISH, () => {
-  console.log("Música terminou, acionando próxima...");
   nextTrack();
 });
 
-// 3. Atualizar o título quando a faixa muda (mesmo dentro de álbuns)
+// 4. Atualizar metadados e botões toda vez que o Play inicia
 widget.bind(SC.Widget.Events.PLAY, () => {
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
       updateMediaMetadata(sound);
+      updatePlaylistUI();
     }
   });
 });
 
-// 4. ADICIONAR CONTEÚDO
+// 5. Função para Adicionar Música (Suporta links encurtados e álbuns)
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
@@ -35,44 +36,44 @@ async function handleAddContent() {
   if (url.includes("soundcloud.com")) {
     playlist.push({ url: url, title: "Carregando informações..." });
     updatePlaylistUI();
-    if (playlist.length === 1) playTrack(0);
+
+    if (playlist.length === 1) {
+      playTrack(0);
+    }
+  } else {
+    alert("Cole um link válido do SoundCloud.");
   }
   urlInput.value = "";
 }
 
-// 5. FUNÇÃO DE PLAY (REFORMULADA)
+// 6. Função para Carregar e Tocar
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
 
-    // No load, forçamos o auto_play para o iOS não bloquear
     widget.load(playlist[index].url, {
       auto_play: true,
       show_artwork: true,
       callback: () => {
         widget.play();
-        updatePlaylistUI();
+        widget.setVolume(100);
       },
     });
   }
 }
 
-// 6. NAVEGAÇÃO REFORÇADA
+// 7. Navegação entre Faixas (Álbuns e Playlist Manual)
 function nextTrack() {
-  // Verificamos se estamos em um álbum ou playlist do SoundCloud
   widget.getSounds((sounds) => {
     widget.getCurrentSoundIndex((currentIndexInAlbum) => {
-      // Se houver mais músicas no álbum atual, pula internamente
+      // Se houver próxima música dentro do álbum atual
       if (sounds && currentIndexInAlbum < sounds.length - 1) {
         widget.next();
       } else {
-        // Se o álbum acabou, pula para o PRÓXIMO LINK da sua lista
+        // Se o álbum acabou, pula para o próximo link da fila
         if (playlist.length > 1) {
           currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
           playTrack(currentTrackIndex);
-        } else {
-          // Se só tem um link (um álbum), volta para a primeira música dele
-          widget.skip(0);
         }
       }
     });
@@ -83,44 +84,62 @@ function prevTrack() {
   widget.getCurrentSoundIndex((currentIndexInAlbum) => {
     if (currentIndexInAlbum > 0) {
       widget.prev();
-    } else {
-      if (playlist.length > 1) {
-        currentTrackIndex =
-          (currentTrackIndex - 1 + playlist.length) % playlist.length;
-        playTrack(currentTrackIndex);
-      }
+    } else if (playlist.length > 1) {
+      currentTrackIndex =
+        (currentTrackIndex - 1 + playlist.length) % playlist.length;
+      playTrack(currentTrackIndex);
     }
   });
 }
 
-// 7. INTERFACE E MEDIA SESSION
+// 8. CORREÇÃO DA TELA DE BLOQUEIO (Media Session API)
 function updateMediaMetadata(sound) {
   if ("mediaSession" in navigator && sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
+      album: "My SoundCloud Player",
       artwork: [
-        { src: sound.artwork_url || "", sizes: "512x512", type: "image/jpg" },
+        {
+          src: sound.artwork_url
+            ? sound.artwork_url.replace("-large", "-t500x500")
+            : "",
+          sizes: "512x512",
+          type: "image/jpg",
+        },
       ],
     });
+
+    // Registrar os Handlers força o iOS a mostrar as setas ⏭/⏮
+    navigator.mediaSession.setActionHandler("play", () => widget.play());
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
+    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
+
+    // Desativa os botões de 10 segundos (Seek) para priorizar as setas
+    navigator.mediaSession.setActionHandler("seekbackward", null);
+    navigator.mediaSession.setActionHandler("seekforward", null);
   }
 }
 
+// 9. Atualizar Interface Visual
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
   if (!listElement) return;
+
   listElement.innerHTML = "";
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span><strong>${index + 1}.</strong> ${item.title}</span>`;
     li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
     li.style.cursor = "pointer";
+    li.style.padding = "8px";
     li.onclick = () => playTrack(index);
     listElement.appendChild(li);
   });
 }
 
-// 8. VINCULAR BOTÕES
+// 10. Vincular Eventos aos Botões do HTML
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
   document.getElementById("btnPlay").onclick = () => widget.play();
