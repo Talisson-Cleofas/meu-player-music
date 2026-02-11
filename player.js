@@ -1,16 +1,17 @@
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 const btnTogglePlay = document.getElementById("btnTogglePlay");
+const playIcon = document.getElementById("playIcon");
 
 const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3');
 audioFix.loop = true;
 
 let playlist = [];
-let isProcessing = false; // Evita cliques múltiplos que travam o pause
+let isProcessing = false;
 
 // 1. Sincronização de PLAY
 widget.bind(SC.Widget.Events.PLAY, () => {
-  btnTogglePlay.innerText = "⏸";
+  playIcon.className = "fas fa-pause"; // Troca ícone para Pause
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
   
   widget.getCurrentSound((sound) => {
@@ -25,32 +26,28 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 // 2. Sincronização de PAUSE
 widget.bind(SC.Widget.Events.PAUSE, () => {
-  btnTogglePlay.innerText = "▶";
+  playIcon.className = "fas fa-play"; // Troca ícone para Play
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   audioFix.pause();
 });
 
-// 3. Lógica do Botão Único (Corrigida para Navegador)
+// 3. Lógica do Botão Único
 function togglePlayback() {
   if (isProcessing) return;
   isProcessing = true;
 
-  // Perguntamos o estado real ao Widget antes de agir
   widget.isPaused((paused) => {
     if (paused) {
       widget.play();
       audioFix.play().catch(() => {});
     } else {
       widget.pause();
-      // Reforço: Se o primeiro pause falhar (comum no Safari/Chrome), tenta de novo em 50ms
       setTimeout(() => {
         widget.isPaused((stillPlaying) => {
           if (!stillPlaying) widget.pause();
         });
       }, 50);
     }
-    
-    // Libera o botão após um curto delay
     setTimeout(() => { isProcessing = false; }, 300);
   });
 }
@@ -62,8 +59,6 @@ async function handleAddContent() {
 
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
-    
-    // Limpa links móveis e parâmetros de rastreio
     url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
 
     widget.load(url, {
@@ -110,8 +105,6 @@ function applyMediaSession(sound) {
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
-    navigator.mediaSession.setActionHandler('seekbackward', null);
-    navigator.mediaSession.setActionHandler('seekforward', null);
   }
 }
 
