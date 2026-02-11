@@ -3,7 +3,7 @@ let playlist = [];
 let currentTrackIndex = 0;
 let wakeLock = null;
 
-// Áudio de suporte: Essencial para o iOS não suspender o processo de rede
+// Áudio de suporte para manter o canal de som aberto no iOS
 const silentAudio = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-minutes-of-silence.mp3",
 );
@@ -21,26 +21,23 @@ function onYouTubeIframeAPIReady() {
       playsinline: 1,
       autoplay: 0,
       controls: 1,
-      disablekb: 1,
-      fs: 1,
+      mute: 0,
+      enablejsapi: 1,
       origin: window.location.origin,
-      widget_referrer: window.location.origin,
-      host: "https://www.youtube-nocookie.com",
     },
     events: {
-      onStateChange: onPlayerStateChange,
       onReady: (event) => {
-        // Garante que o player comece com volume e sem mudo
+        // Tenta desmudar preventivamente
         event.target.unMute();
         event.target.setVolume(100);
-        console.log("Player pronto");
       },
+      onStateChange: onPlayerStateChange,
     },
   });
 }
 
-// TÉCNICA PARA IOS: Mantém o canal de áudio aberto ao bloquear
-document.addEventListener("visibilitychange", function () {
+// Mantém o processo vivo ao sair da aba
+document.addEventListener("visibilitychange", () => {
   if (
     document.hidden &&
     player &&
@@ -49,14 +46,6 @@ document.addEventListener("visibilitychange", function () {
     silentAudio.play().catch(() => {});
   }
 });
-
-async function requestWakeLock() {
-  try {
-    if ("wakeLock" in navigator) {
-      wakeLock = await navigator.wakeLock.request("screen");
-    }
-  } catch (err) {}
-}
 
 function updateMediaMetadata() {
   if ("mediaSession" in navigator) {
@@ -76,58 +65,19 @@ function updateMediaMetadata() {
     navigator.mediaSession.setActionHandler("play", () => {
       player.playVideo();
       player.unMute();
-      silentAudio.play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
       player.pauseVideo();
-      silentAudio.pause();
     });
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
   }
 }
 
-async function handleAddContent() {
-  const url = document.getElementById("videoUrl").value;
-  const videoId = extractVideoID(url);
-  const playlistId = extractPlaylistID(url);
-
-  if (playlistId) {
-    player.cuePlaylist({ listType: "playlist", list: playlistId, index: 0 });
-    document.getElementById("status").innerText = "Playlist pronta!";
-    addToPlaylistArray(videoId || "", "🎬 Playlist Ativa");
-  } else if (videoId) {
-    const title = await getVideoTitle(videoId);
-    addToPlaylistArray(videoId, title);
-  }
-  document.getElementById("videoUrl").value = "";
-}
-
-async function getVideoTitle(videoId) {
-  try {
-    const response = await fetch(
-      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
-    );
-    const data = await response.json();
-    return data.title;
-  } catch (e) {
-    return "Música Desconhecida";
-  }
-}
-
-function addToPlaylistArray(id, title) {
-  playlist.push({ id, title });
-  updatePlaylistUI();
-  if (playlist.length === 1) {
-    player.cueVideoById(id);
-    document.getElementById("status").innerText = "Aperte Play para iniciar";
-  }
-}
-
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
-    // iOS HACK: O clique do usuário deve ativar o áudio e desmudar o vídeo
+    // O segredo para o iOS: primeiro o áudio local, depois o YouTube desmudado
     silentAudio
       .play()
       .then(() => {
@@ -137,63 +87,44 @@ function playTrack(index) {
       })
       .catch(() => {
         player.loadVideoById(playlist[currentTrackIndex].id);
-        player.unMute();
       });
     updatePlaylistUI();
   }
 }
 
-function nextTrack() {
-  const ytPlaylist = player.getPlaylist();
-  if (ytPlaylist && player.getPlaylistIndex() < ytPlaylist.length - 1) {
-    player.nextVideo();
-  } else if (currentTrackIndex + 1 < playlist.length) {
-    playTrack(currentTrackIndex + 1);
-  }
-}
-
-function prevTrack() {
-  if (player.getPlaylistIndex() > 0) {
-    player.previousVideo();
-  } else if (currentTrackIndex - 1 >= 0) {
-    playTrack(currentTrackIndex - 1);
-  }
-}
-
 function onPlayerStateChange(event) {
-  const status = document.getElementById("status");
-  const videoData = player.getVideoData();
-
-  if (event.data === YT.PlayerState.ENDED) nextTrack();
-
   if (event.data === YT.PlayerState.PLAYING) {
-    // Força o áudio novamente caso o iOS tenha silenciado na troca de faixa
-    event.target.unMute();
+    event.target.unMute(); // Reafirma o som no início de cada faixa
     event.target.setVolume(100);
-
-    status.innerText = videoData.title;
-    requestWakeLock();
     updateMediaMetadata();
     silentAudio.play().catch(() => {});
+    document.getElementById("status").innerText = player.getVideoData().title;
   }
+  if (event.data === YT.PlayerState.ENDED) nextTrack();
 }
 
-function removeFromPlaylist(index) {
-  if (index === currentTrackIndex) {
-    playlist.splice(index, 1);
-    if (playlist.length > 0) {
-      const nextIdx = index < playlist.length ? index : playlist.length - 1;
-      playTrack(nextIdx);
-    } else {
-      player.stopVideo();
-      document.getElementById("status").innerText = "Fila vazia";
-      currentTrackIndex = 0;
-    }
-  } else {
-    playlist.splice(index, 1);
-    if (index < currentTrackIndex) currentTrackIndex--;
+// Funções de controle padrão
+function nextTrack() {
+  if (currentTrackIndex + 1 < playlist.length) playTrack(currentTrackIndex + 1);
+}
+function prevTrack() {
+  if (currentTrackIndex - 1 >= 0) playTrack(currentTrackIndex - 1);
+}
+
+// Utilitários de Playlist e Extração (Mantenha os seus)
+async function handleAddContent() {
+  const url = document.getElementById("videoUrl").value;
+  const videoId = extractVideoID(url);
+  if (videoId) {
+    const response = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+    );
+    const data = await response.json();
+    playlist.push({ id: videoId, title: data.title });
+    updatePlaylistUI();
+    if (playlist.length === 1) player.cueVideoById(videoId);
   }
-  updatePlaylistUI();
+  document.getElementById("videoUrl").value = "";
 }
 
 function updatePlaylistUI() {
@@ -201,46 +132,27 @@ function updatePlaylistUI() {
   listElement.innerHTML = "";
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
-    const textSpan = document.createElement("span");
-    textSpan.innerHTML = `<strong>${index + 1}.</strong> ${item.title}`;
-    textSpan.style.flex = "1";
-    textSpan.onclick = () => playTrack(index);
-    const delBtn = document.createElement("button");
-    delBtn.innerHTML = "&times;";
-    delBtn.className = "btn-remove";
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      removeFromPlaylist(index);
-    };
-    if (index === currentTrackIndex) {
-      li.style.color = "#1DB954";
-      li.style.background = "#2a2a2a";
-    }
-    li.appendChild(textSpan);
-    li.appendChild(delBtn);
+    li.innerHTML = `<span><strong>${index + 1}.</strong> ${item.title}</span>`;
+    li.onclick = () => playTrack(index);
+    if (index === currentTrackIndex) li.style.color = "#1DB954";
     listElement.appendChild(li);
   });
 }
 
 function extractVideoID(url) {
-  const regExp =
-    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
+  const match = url.match(
+    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/,
+  );
   return match && match[2].length === 11 ? match[2] : null;
 }
-function extractPlaylistID(url) {
-  const regExp = /[&?]list=([^#&?]+)/;
-  const match = url.match(regExp);
-  return match ? match[1] : null;
-}
 
-// LISTENERS COM DESMUDAR FORÇADO
+// Listeners de Evento
 document.getElementById("btnLoad").addEventListener("click", handleAddContent);
 document.getElementById("btnPlay").addEventListener("click", () => {
-  player.unMute();
+  silentAudio.play().catch(() => {});
+  player.unMute(); // Essencial para o Safari liberar o som
   player.setVolume(100);
   player.playVideo();
-  silentAudio.play().catch(() => {});
 });
 document.getElementById("btnPause").addEventListener("click", () => {
   player.pauseVideo();
