@@ -15,12 +15,12 @@ document.head.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    height: "200", // Tamanho visível ajuda a manter o processo ativo no iOS
+    height: "100%",
     width: "100%",
     playerVars: {
       playsinline: 1,
       autoplay: 0,
-      controls: 1, // Ativar controles nativos facilita o modo Picture-in-Picture
+      controls: 1,
       disablekb: 1,
       fs: 1,
       origin: window.location.origin,
@@ -29,12 +29,15 @@ function onYouTubeIframeAPIReady() {
     },
     events: {
       onStateChange: onPlayerStateChange,
-      onReady: () => console.log("Player pronto"),
+      onReady: (event) => {
+        event.target.setVolume(100);
+        console.log("Player pronto");
+      },
     },
   });
 }
 
-// TÉCNICA PARA IOS: Mantém o áudio "quente" ao trocar de aba ou bloquear
+// TÉCNICA PARA IOS: Mantém o canal de áudio aberto
 document.addEventListener("visibilitychange", function () {
   if (
     document.hidden &&
@@ -121,10 +124,18 @@ function addToPlaylistArray(id, title) {
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
-    player.loadVideoById(playlist[currentTrackIndex].id);
+    // iOS Hack: Tocar o áudio silencioso ANTES do vídeo prepara o sistema de som
+    silentAudio
+      .play()
+      .then(() => {
+        player.loadVideoById(playlist[currentTrackIndex].id);
+        player.setVolume(100);
+        player.unMute();
+      })
+      .catch(() => {
+        player.loadVideoById(playlist[currentTrackIndex].id);
+      });
     updatePlaylistUI();
-    // Ativa o áudio silencioso simultaneamente
-    silentAudio.play().catch(() => {});
   }
 }
 
