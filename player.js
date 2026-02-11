@@ -1,160 +1,130 @@
-// 1. Inicialização do Widget e Variáveis de Controle
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 
 let playlist = [];
 let currentTrackIndex = 0;
 
-// 2. Configuração Inicial (READY)
+// 1. CONFIGURAÇÃO INICIAL
 widget.bind(SC.Widget.Events.READY, () => {
   console.log("SoundCloud pronto");
-  document.getElementById("status").innerText =
-    "Insira um link e clique em Carregar";
+  document.getElementById("status").innerText = "Pronto para tocar!";
   widget.setVolume(100);
 });
 
-// 3. Evento de Próxima Automática (FINISH)
+// 2. O SEGREDO: Detectar quando uma música acaba e FORÇAR a próxima
 widget.bind(SC.Widget.Events.FINISH, () => {
+  console.log("Música terminou, acionando próxima...");
   nextTrack();
 });
 
-// 4. Função para Adicionar Conteúdo (Suporta links curtos e longos)
+// 3. Atualizar o título quando a faixa muda (mesmo dentro de álbuns)
+widget.bind(SC.Widget.Events.PLAY, () => {
+  widget.getCurrentSound((sound) => {
+    if (sound) {
+      document.getElementById("status").innerText = sound.title;
+      updateMediaMetadata(sound);
+    }
+  });
+});
+
+// 4. ADICIONAR CONTEÚDO
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
 
   if (url.includes("soundcloud.com")) {
-    const statusDisplay = document.getElementById("status");
-    statusDisplay.innerText = "Adicionando à fila...";
-
-    // Adiciona à lista local
-    const newTrack = { url: url, title: "Música Carregando..." };
-    playlist.push(newTrack);
+    playlist.push({ url: url, title: "Carregando informações..." });
     updatePlaylistUI();
-
-    // Se for a primeira música da fila, toca imediatamente
-    if (playlist.length === 1) {
-      playTrack(0);
-    }
-  } else {
-    alert("Por favor, cole um link válido do SoundCloud.");
+    if (playlist.length === 1) playTrack(0);
   }
   urlInput.value = "";
 }
 
-// 5. Função Principal de Reprodução
+// 5. FUNÇÃO DE PLAY (REFORMULADA)
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
-    const statusDisplay = document.getElementById("status");
 
-    statusDisplay.innerText = "Carregando áudio...";
-    updatePlaylistUI(); // Atualiza a cor na lista visual
-
-    // Carrega a nova URL no player do SoundCloud
+    // No load, forçamos o auto_play para o iOS não bloquear
     widget.load(playlist[index].url, {
       auto_play: true,
       show_artwork: true,
       callback: () => {
         widget.play();
-        widget.setVolume(100);
-
-        // Tenta buscar o título real da música para a interface
-        let attempts = 0;
-        const checkSound = setInterval(() => {
-          widget.getCurrentSound((sound) => {
-            if (sound && sound.title) {
-              playlist[index].title = sound.title;
-              statusDisplay.innerText = sound.title;
-              updatePlaylistUI();
-              updateMediaMetadata(sound);
-              clearInterval(checkSound);
-            }
-          });
-          attempts++;
-          if (attempts > 10) clearInterval(checkSound);
-        }, 1000);
+        updatePlaylistUI();
       },
     });
   }
 }
 
-// 6. Funções de Navegação (CORRIGIDAS)
+// 6. NAVEGAÇÃO REFORÇADA
 function nextTrack() {
-  if (playlist.length > 0) {
-    currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
-    playTrack(currentTrackIndex);
-  }
+  // Verificamos se estamos em um álbum ou playlist do SoundCloud
+  widget.getSounds((sounds) => {
+    widget.getCurrentSoundIndex((currentIndexInAlbum) => {
+      // Se houver mais músicas no álbum atual, pula internamente
+      if (sounds && currentIndexInAlbum < sounds.length - 1) {
+        widget.next();
+      } else {
+        // Se o álbum acabou, pula para o PRÓXIMO LINK da sua lista
+        if (playlist.length > 1) {
+          currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+          playTrack(currentTrackIndex);
+        } else {
+          // Se só tem um link (um álbum), volta para a primeira música dele
+          widget.skip(0);
+        }
+      }
+    });
+  });
 }
 
 function prevTrack() {
-  if (playlist.length > 0) {
-    currentTrackIndex =
-      (currentTrackIndex - 1 + playlist.length) % playlist.length;
-    playTrack(currentTrackIndex);
-  }
+  widget.getCurrentSoundIndex((currentIndexInAlbum) => {
+    if (currentIndexInAlbum > 0) {
+      widget.prev();
+    } else {
+      if (playlist.length > 1) {
+        currentTrackIndex =
+          (currentTrackIndex - 1 + playlist.length) % playlist.length;
+        playTrack(currentTrackIndex);
+      }
+    }
+  });
 }
 
-// 7. Integração com a Tela de Bloqueio do iPhone (MediaSession)
+// 7. INTERFACE E MEDIA SESSION
 function updateMediaMetadata(sound) {
   if ("mediaSession" in navigator && sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
       artwork: [
-        {
-          src: sound.artwork_url
-            ? sound.artwork_url.replace("-large", "-t500x500")
-            : "",
-          sizes: "512x512",
-          type: "image/jpg",
-        },
+        { src: sound.artwork_url || "", sizes: "512x512", type: "image/jpg" },
       ],
     });
-
-    navigator.mediaSession.setActionHandler("play", () => widget.play());
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
-    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
   }
 }
 
-// 8. Atualização Visual da Playlist
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
+  if (!listElement) return;
   listElement.innerHTML = "";
-
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span><strong>${index + 1}.</strong> ${item.title}</span>`;
-
-    // Estilo dinâmico para a música que está tocando
-    if (index === currentTrackIndex) {
-      li.style.color = "#1DB954";
-      li.style.fontWeight = "bold";
-      li.style.background = "#2a2a2a";
-    }
-
+    li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
+    li.style.cursor = "pointer";
     li.onclick = () => playTrack(index);
     listElement.appendChild(li);
   });
 }
 
-// 9. Listeners de Evento para os Botões
-document.getElementById("btnLoad").addEventListener("click", handleAddContent);
-
-document.getElementById("btnPlay").addEventListener("click", () => {
-  widget.play();
-});
-
-document.getElementById("btnPause").addEventListener("click", () => {
-  widget.pause();
-});
-
-document.getElementById("btnNext").addEventListener("click", () => {
-  nextTrack();
-});
-
-document.getElementById("btnPrev").addEventListener("click", () => {
-  prevTrack();
+// 8. VINCULAR BOTÕES
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("btnLoad").onclick = handleAddContent;
+  document.getElementById("btnPlay").onclick = () => widget.play();
+  document.getElementById("btnPause").onclick = () => widget.pause();
+  document.getElementById("btnNext").onclick = nextTrack;
+  document.getElementById("btnPrev").onclick = prevTrack;
 });
