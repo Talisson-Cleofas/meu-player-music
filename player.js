@@ -15,7 +15,6 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
 
-// FUNÇÃO ALTERADA: Agora extrai músicas de álbuns dinamicamente
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
@@ -23,29 +22,21 @@ async function handleAddContent() {
 
   if (url.includes("soundcloud.com")) {
     statusDisplay.innerText = "Analisando link...";
-
-    // Carregamos o link temporariamente para extrair as faixas
     widget.load(url, {
       auto_play: false,
       callback: () => {
         widget.getSounds((sounds) => {
           if (sounds && sounds.length > 0) {
-            // Se for álbum, sounds.length será > 1. Se for música única, será 1.
             sounds.forEach((track) => {
               playlist.push({
-                url: track.uri, // Usamos a URI direta da música
+                url: track.uri,
                 title: track.title,
+                user: track.user.username
               });
             });
-
-            statusDisplay.innerText =
-              sounds.length > 1 ? "Álbum adicionado!" : "Música adicionada!";
+            statusDisplay.innerText = "Adicionado!";
             updatePlaylistUI();
-
-            // Se a playlist estava vazia, começa a tocar a primeira do álbum
-            if (playlist.length === sounds.length) {
-              playTrack(0);
-            }
+            if (playlist.length === sounds.length) playTrack(0);
           }
         });
       },
@@ -57,6 +48,7 @@ async function handleAddContent() {
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
+    // O segredo para o iOS: carregar com auto_play true e chamar play no callback
     widget.load(playlist[index].url, {
       auto_play: true,
       show_artwork: true,
@@ -68,19 +60,17 @@ function playTrack(index) {
   }
 }
 
+// Funções de navegação otimizadas para MediaSession
 function nextTrack() {
-  widget.play(); // Acorda o áudio para o iOS
-  if (playlist.length > 1) {
+  if (playlist.length > 0) {
     currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
     playTrack(currentTrackIndex);
   }
 }
 
 function prevTrack() {
-  widget.play();
-  if (playlist.length > 1) {
-    currentTrackIndex =
-      (currentTrackIndex - 1 + playlist.length) % playlist.length;
+  if (playlist.length > 0) {
+    currentTrackIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
     playTrack(currentTrackIndex);
   }
 }
@@ -102,14 +92,10 @@ function updateMetadataRepeatedly() {
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     let artwork = sound.artwork_url
-      ? sound.artwork_url
-          .replace("http:", "https:")
-          .replace("-large", "-t500x500")
-      : sound.user && sound.user.avatar_url
-        ? sound.user.avatar_url
-            .replace("http:", "https:")
-            .replace("-large", "-t500x500")
-        : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
+      ? sound.artwork_url.replace("http:", "https:").replace("-large", "-t500x500")
+      : (sound.user && sound.user.avatar_url 
+         ? sound.user.avatar_url.replace("http:", "https:").replace("-large", "-t500x500") 
+         : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png");
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title || "SoundCloud",
@@ -118,20 +104,11 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    const actions = [
-      ["play", () => widget.play()],
-      ["pause", () => widget.pause()],
-      ["previoustrack", () => prevTrack()],
-      ["nexttrack", () => nextTrack()],
-      ["seekbackward", null],
-      ["seekforward", null],
-    ];
-
-    actions.forEach(([action, handler]) => {
-      try {
-        navigator.mediaSession.setActionHandler(action, handler);
-      } catch (e) {}
-    });
+    // Handlers mapeados diretamente para as funções globais
+    navigator.mediaSession.setActionHandler("play", () => widget.play());
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
+    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
   }
 }
 
@@ -139,13 +116,22 @@ function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
   if (!listElement) return;
   listElement.innerHTML = "";
+  
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${index + 1}.</strong> ${item.title}`;
-    li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
-    li.style.fontWeight = index === currentTrackIndex ? "bold" : "normal";
-    li.style.padding = "10px 0"; // Melhora o toque no mobile
-    li.style.borderBottom = "1px solid #333";
+    
+    // Aplica a classe ativa para o novo CSS
+    if (index === currentTrackIndex) {
+      li.classList.add("active-track");
+    }
+
+    li.innerHTML = `
+      <span class="track-num">${(index + 1).toString().padStart(2, '0')}</span>
+      <div class="track-info">
+        <span class="track-name">${item.title}</span>
+      </div>
+    `;
+    
     li.onclick = () => playTrack(index);
     listElement.appendChild(li);
   });
