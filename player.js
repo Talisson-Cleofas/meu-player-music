@@ -1,15 +1,15 @@
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 
-// Áudio silencioso para manter o iOS acordado
+// Áudio silencioso para manter o canal aberto no mobile
 const pulseAudio = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3');
 pulseAudio.loop = true;
 
 let playlist = [];
 
-// 1. Sincroniza quando a música começa a tocar
+// 1. Monitora o estado de PLAY
 widget.bind(SC.Widget.Events.PLAY, () => {
-  pulseAudio.play().catch(() => {}); // "Acorda" o sistema de áudio do celular
+  pulseAudio.play().catch(() => {}); 
   
   widget.getCurrentSound((sound) => {
     if (sound) {
@@ -20,39 +20,44 @@ widget.bind(SC.Widget.Events.PLAY, () => {
   });
 });
 
-// 2. Quando a música termina
+// 2. Quando terminar, vai para a próxima
 widget.bind(SC.Widget.Events.FINISH, () => {
   widget.next();
 });
 
-// 3. Adiciona conteúdo (Carrega álbum ou música)
+// 3. FUNÇÃO DE CARREGAR AJUSTADA (Resolve o "Aguardando música")
 function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
+  const statusElement = document.getElementById("status");
 
   if (url.includes("soundcloud.com")) {
-    document.getElementById("status").innerText = "Carregando...";
+    statusElement.innerText = "Carregando faixas...";
     
-    // Carregamos no widget. O Widget resolve o link sozinho (sem erro de API)
     widget.load(url, {
       auto_play: true,
       show_artwork: true,
       callback: () => {
-        // Após carregar, pegamos a lista de músicas para mostrar na tela
-        widget.getSounds((sounds) => {
-          if (sounds) {
-            playlist = sounds.map(s => ({ title: s.title }));
-            updatePlaylistUI();
-            widget.play();
-          }
-        });
+        // Tentativa de pegar as músicas após o carregamento
+        setTimeout(() => {
+          widget.getSounds((sounds) => {
+            if (sounds && sounds.length > 0) {
+              playlist = sounds.map(s => ({ title: s.title }));
+              updatePlaylistUI();
+              statusElement.innerText = "Playlist pronta!";
+              widget.play();
+            } else {
+              statusElement.innerText = "Erro ao ler álbum.";
+            }
+          });
+        }, 1000); // Espera 1 segundo para o widget processar o link
       }
     });
   }
   urlInput.value = "";
 }
 
-// 4. Media Session (Controles da Tela de Bloqueio)
+// 4. Media Session (Tela de Bloqueio)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -62,32 +67,22 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
-      album: "SoundCloud",
+      album: "SoundCloud Player",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
     navigator.mediaSession.setActionHandler("play", () => widget.play());
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    
-    // IMPORTANTE: Comandos diretos para o Widget
-    navigator.mediaSession.setActionHandler("nexttrack", () => {
-      widget.next();
-      setTimeout(() => widget.play(), 200);
-    });
-    navigator.mediaSession.setActionHandler("previoustrack", () => {
-      widget.prev();
-      setTimeout(() => widget.play(), 200);
-    });
-
-    // Remove botões de 10s
-    navigator.mediaSession.setActionHandler('seekbackward', null);
-    navigator.mediaSession.setActionHandler('seekforward', null);
+    navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
+    navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
   }
 }
 
-// 5. Interface Visual
+// 5. Interface da Fila
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
+  if (!listElement) return;
+  
   listElement.innerHTML = "";
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
@@ -104,13 +99,14 @@ function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach(li => {
     li.classList.remove("active-track");
-    if (li.querySelector(".track-name").innerText === currentTitle) {
+    const nameSpan = li.querySelector(".track-name");
+    if (nameSpan && nameSpan.innerText === currentTitle) {
       li.classList.add("active-track");
     }
   });
 }
 
-// 6. Configuração dos botões físicos
+// 6. Botões
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
   document.getElementById("btnPlay").onclick = () => { widget.play(); pulseAudio.play(); };
