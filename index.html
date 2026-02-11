@@ -6,15 +6,17 @@
     <title>My Music Player</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* Mantém o player "ativo" para o sistema, mas invisível para o usuário */
+      /* ESTRATÉGIA IOS: O player não pode estar com display:none nem fora da área visível */
+      /* Vamos deixá-lo minúsculo e transparente, mas no topo da tela */
       .hidden-player {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-        width: 200px; /* Tamanho mínimo para o iOS não suspender o vídeo */
-        height: 200px;
-        opacity: 0.01;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 10px;
+        height: 10px;
+        opacity: 0.001;
         pointer-events: none;
+        z-index: -1;
       }
     </style>
   </head>
@@ -32,9 +34,6 @@
         <button id="btnPlay" class="btn-main">▶</button>
         <button id="btnPause" class="btn-main">⏸</button>
         <button id="btnNext" class="btn-secondary">⏭</button>
-        <button id="btnPip" class="btn-secondary" title="Modo Miniatura">
-          📺
-        </button>
       </div>
 
       <div class="playlist-container">
