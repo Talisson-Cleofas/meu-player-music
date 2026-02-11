@@ -1,63 +1,69 @@
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 
-// Áudio silencioso para manter o canal aberto no mobile
-const pulseAudio = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3');
-pulseAudio.loop = true;
+// CRUCIAL: Criamos um áudio silencioso para manter o sistema acordado
+const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3');
+audioFix.loop = true;
 
 let playlist = [];
 
-// 1. Monitora o estado de PLAY
+widget.bind(SC.Widget.Events.READY, () => {
+  document.getElementById("status").innerText = "Pronto!";
+});
+
 widget.bind(SC.Widget.Events.PLAY, () => {
-  pulseAudio.play().catch(() => {}); 
-  
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
       applyMediaSession(sound);
       updateActiveTrackVisual(sound.title);
+      // Quando o SoundCloud toca, iniciamos o áudio silencioso para "segurar" o canal
+      audioFix.play().catch(() => {});
     }
   });
 });
 
-// 2. Quando terminar, vai para a próxima
-widget.bind(SC.Widget.Events.FINISH, () => {
-  widget.next();
-});
+widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
 
-// 3. FUNÇÃO DE CARREGAR AJUSTADA (Resolve o "Aguardando música")
-function handleAddContent() {
+async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
-  const statusElement = document.getElementById("status");
 
   if (url.includes("soundcloud.com")) {
-    statusElement.innerText = "Carregando faixas...";
-    
+    document.getElementById("status").innerText = "Sintonizando...";
     widget.load(url, {
       auto_play: true,
-      show_artwork: true,
       callback: () => {
-        // Tentativa de pegar as músicas após o carregamento
-        setTimeout(() => {
-          widget.getSounds((sounds) => {
-            if (sounds && sounds.length > 0) {
-              playlist = sounds.map(s => ({ title: s.title }));
-              updatePlaylistUI();
-              statusElement.innerText = "Playlist pronta!";
-              widget.play();
-            } else {
-              statusElement.innerText = "Erro ao ler álbum.";
-            }
-          });
-        }, 1000); // Espera 1 segundo para o widget processar o link
+        widget.getSounds((sounds) => {
+          if (sounds) {
+            playlist = sounds.map(s => ({ title: s.title }));
+            updatePlaylistUI();
+            widget.play();
+          }
+        });
       }
     });
   }
   urlInput.value = "";
 }
 
-// 4. Media Session (Tela de Bloqueio)
+// NAVEGAÇÃO: Agora o comando é disparado com prioridade máxima
+function nextTrack() {
+  // 1. Acorda o sistema
+  audioFix.play().catch(() => {});
+  // 2. Comanda o widget
+  widget.next();
+  // 3. Força a UI a se manter ativa
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.playbackState = "playing";
+  }
+}
+
+function prevTrack() {
+  audioFix.play().catch(() => {});
+  widget.prev();
+}
+
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -71,25 +77,32 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    navigator.mediaSession.setActionHandler("play", () => widget.play());
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
-    navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
+    // Mapeamos os botões DIRETAMENTE para as funções de navegação
+    navigator.mediaSession.setActionHandler("play", () => {
+        widget.play();
+        audioFix.play();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+        widget.pause();
+        audioFix.pause();
+    });
+    
+    // Vinculação direta para tela de bloqueio
+    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
+    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
+
+    // Remove botões de 10s
+    navigator.mediaSession.setActionHandler('seekbackward', null);
+    navigator.mediaSession.setActionHandler('seekforward', null);
   }
 }
 
-// 5. Interface da Fila
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
-  if (!listElement) return;
-  
   listElement.innerHTML = "";
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
-    li.innerHTML = `
-      <span class="track-num">${(index + 1).toString().padStart(2, '0')}</span>
-      <span class="track-name">${item.title}</span>
-    `;
+    li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, '0')}</span><span class="track-name">${item.title}</span>`;
     li.onclick = () => widget.skip(index);
     listElement.appendChild(li);
   });
@@ -99,18 +112,16 @@ function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach(li => {
     li.classList.remove("active-track");
-    const nameSpan = li.querySelector(".track-name");
-    if (nameSpan && nameSpan.innerText === currentTitle) {
+    if (li.querySelector(".track-name").innerText === currentTitle) {
       li.classList.add("active-track");
     }
   });
 }
 
-// 6. Botões
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
-  document.getElementById("btnPlay").onclick = () => { widget.play(); pulseAudio.play(); };
-  document.getElementById("btnPause").onclick = () => { widget.pause(); pulseAudio.pause(); };
-  document.getElementById("btnNext").onclick = () => widget.next();
-  document.getElementById("btnPrev").onclick = () => widget.prev();
+  document.getElementById("btnPlay").onclick = () => { widget.play(); audioFix.play(); };
+  document.getElementById("btnPause").onclick = () => { widget.pause(); audioFix.pause(); };
+  document.getElementById("btnNext").onclick = nextTrack;
+  document.getElementById("btnPrev").onclick = prevTrack;
 });
