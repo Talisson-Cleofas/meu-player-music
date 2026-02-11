@@ -3,18 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Music Player</title>
+    <title>My Music Player (SoundCloud)</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* ESTRATÉGIA IOS: O player não pode estar com display:none nem fora da área visível */
-      /* Vamos deixá-lo minúsculo e transparente, mas no topo da tela */
+      /* Mantemos o player tecnicamente visível para o Safari não suspender o áudio */
       .hidden-player {
         position: fixed;
         top: 0;
         left: 0;
-        width: 10px;
-        height: 10px;
-        opacity: 0.001;
+        width: 1px;
+        height: 1px;
+        opacity: 0.01;
         pointer-events: none;
         z-index: -1;
       }
@@ -22,10 +21,10 @@
   </head>
   <body>
     <main class="player-card">
-      <h2>Web Music Player</h2>
+      <h2>SoundCloud Player</h2>
 
       <div class="input-group">
-        <input type="text" id="videoUrl" placeholder="Cole o link do YouTube" />
+        <input type="text" id="videoUrl" placeholder="Cole o link do SoundCloud" />
         <button id="btnLoad">Carregar</button>
       </div>
 
@@ -42,14 +41,23 @@
       </div>
 
       <div class="status-container">
-        <div id="status" class="status-text">Aguardando comando...</div>
+        <div id="status" class="status-text">Aguardando música...</div>
       </div>
 
-      <div id="youtube-player-container" class="hidden-player">
-        <div id="youtube-player"></div>
+      <div id="sc-player-container" class="hidden-player">
+        <iframe 
+          id="sc-widget"
+          src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/293&show_artwork=false" 
+          width="100%" 
+          height="166" 
+          scrolling="no" 
+          frameborder="no" 
+          allow="autoplay">
+        </iframe>
       </div>
     </main>
 
+    <script src="https://w.soundcloud.com/player/api.js"></script>
     <script src="player.js"></script>
   </body>
 </html>
