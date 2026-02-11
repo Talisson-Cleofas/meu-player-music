@@ -171,5 +171,20 @@ li:hover {
     width: 1px;
     height: 1px;
     opacity: 0;
-    pointer-events: none;
+    pointer-events: .controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
+
+.btn-main i {
+  font-size: 1.4rem; /* Tamanho do Play/Pause */
+}
+
+.btn-secondary i {
+  font-size: 1rem; /* Tamanho do Anterior/Próximo */
+}
+
+
+
