@@ -205,3 +205,10 @@ li:hover {
     color: #ff4444; /* Vermelho vibrante no hover */
     transform: scale(1.2);
 }
+
+#youtube-player {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    opacity: 0.01; /* Quase invisível, mas existente */
+}

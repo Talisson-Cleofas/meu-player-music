@@ -3,6 +3,12 @@ let playlist = [];
 let currentTrackIndex = 0;
 let wakeLock = null;
 
+// Elemento para o "hack" de áudio de fundo (opcional, mas ajuda)
+const silentAudio = new Audio(
+  "https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3",
+);
+silentAudio.loop = true;
+
 // 1. Inicialização da API do YouTube
 const tag = document.createElement("script");
 tag.src = "https://www.youtube.com/iframe_api";
@@ -10,8 +16,13 @@ document.head.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    height: "1", // Mínimo de 1px para evitar que o mobile bloqueie o áudio
+    height: "1",
     width: "1",
+    playerVars: {
+      playsinline: 1, // Crucial para mobile não dar zoom
+      autoplay: 0,
+      controls: 0,
+    },
     events: {
       onStateChange: onPlayerStateChange,
       onReady: () => console.log("Player pronto"),
@@ -26,11 +37,11 @@ async function requestWakeLock() {
       wakeLock = await navigator.wakeLock.request("screen");
     }
   } catch (err) {
-    console.log("Wake Lock não suportado ou negado.");
+    console.log("Wake Lock não suportado.");
   }
 }
 
-// 3. Media Session: Habilita controles na tela de bloqueio e fones
+// 3. Media Session: Controle pela tela de bloqueio
 function updateMediaMetadata() {
   if ("mediaSession" in navigator) {
     const videoData = player.getVideoData();
@@ -46,7 +57,6 @@ function updateMediaMetadata() {
       ],
     });
 
-    // Conecta botões físicos/tela de bloqueio às funções do código
     navigator.mediaSession.setActionHandler("play", () => player.playVideo());
     navigator.mediaSession.setActionHandler("pause", () => player.pauseVideo());
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
@@ -61,9 +71,8 @@ async function handleAddContent() {
   const playlistId = extractPlaylistID(url);
 
   if (playlistId) {
-    player.loadPlaylist({ listType: "playlist", list: playlistId, index: 0 });
-    document.getElementById("status").innerText =
-      "Carregando Álbum/Playlist...";
+    player.cuePlaylist({ listType: "playlist", list: playlistId, index: 0 });
+    document.getElementById("status").innerText = "Playlist preparada!";
     addToPlaylistArray(videoId || "", "🎬 Álbum/Playlist Ativa");
   } else if (videoId) {
     const title = await getVideoTitle(videoId);
@@ -89,7 +98,13 @@ async function getVideoTitle(videoId) {
 function addToPlaylistArray(id, title) {
   playlist.push({ id, title });
   updatePlaylistUI();
-  if (playlist.length === 1 && !title.includes("Álbum")) playTrack(0);
+
+  // No mobile, se for o primeiro, apenas damos o "CUE" (preparar)
+  // O usuário DEVE clicar no botão PLAY verde para iniciar o áudio pela primeira vez
+  if (playlist.length === 1 && !title.includes("Álbum")) {
+    player.cueVideoById(id);
+    document.getElementById("status").innerText = "Clique no Play para iniciar";
+  }
 }
 
 // 5. Controles
@@ -98,6 +113,8 @@ function playTrack(index) {
     currentTrackIndex = index;
     player.loadVideoById(playlist[currentTrackIndex].id);
     updatePlaylistUI();
+    // Tenta iniciar o áudio silencioso para manter o processo vivo
+    silentAudio.play().catch(() => {});
   }
 }
 
@@ -130,14 +147,15 @@ function onPlayerStateChange(event) {
 
   if (event.data === YT.PlayerState.PLAYING) {
     status.innerText = videoData.title;
-    requestWakeLock(); // Impede standby
-    updateMediaMetadata(); // Ativa controles de bloqueio
+    requestWakeLock();
+    updateMediaMetadata();
+    silentAudio.play().catch(() => {});
   }
+
   if (event.data === YT.PlayerState.PAUSED) {
     status.innerText = "Pausado: " + videoData.title;
     if (wakeLock) {
-      wakeLock.release();
-      wakeLock = null;
+      wakeLock.release().then(() => (wakeLock = null));
     }
   }
 }
@@ -202,9 +220,10 @@ function extractPlaylistID(url) {
 
 // Listeners
 document.getElementById("btnLoad").addEventListener("click", handleAddContent);
-document
-  .getElementById("btnPlay")
-  .addEventListener("click", () => player.playVideo());
+document.getElementById("btnPlay").addEventListener("click", () => {
+  player.playVideo();
+  silentAudio.play().catch(() => {});
+});
 document
   .getElementById("btnPause")
   .addEventListener("click", () => player.pauseVideo());
