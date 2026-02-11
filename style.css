@@ -186,5 +186,21 @@ li:hover {
   font-size: 1rem; /* Tamanho do Anterior/Próximo */
 }
 
+/* Força o ícone a ignorar estilos do sistema mobile */
+.controls i {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    display: inline-block !important;
+    text-decoration: inherit;
+    -webkit-font-smoothing: antialiased;
+    appearance: none; /* Remove estilo padrão de botão mobile */
+}
+
+/* Garante que o botão não mude de cor ou fonte ao ser clicado no mobile */
+.controls button {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
 
 
