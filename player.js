@@ -9,27 +9,33 @@ audioFix.loop = true;
 let playlist = [];
 let isProcessing = false;
 
-// 1. Sincronização de PLAY (Reforçada para travar os controles)
+// 1. Sincronização de PLAY
 widget.bind(SC.Widget.Events.PLAY, () => {
   playIcon.className = "fas fa-pause";
   
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
-      // Atualiza a MediaSession TODA VEZ que o som muda
-      applyMediaSession(sound);
+      
+      // O SEGREDO: Pequeno atraso e reset de metadados para forçar os botões de faixa
+      setTimeout(() => {
+        applyMediaSession(sound);
+      }, 400);
+
       updateActiveTrackVisual(sound.title);
       audioFix.play().catch(() => {});
     }
   });
 });
 
+// 2. Sincronização de PAUSE
 widget.bind(SC.Widget.Events.PAUSE, () => {
   playIcon.className = "fas fa-play";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   audioFix.pause();
 });
 
+// 3. Lógica do Botão Único
 function togglePlayback() {
   if (isProcessing) return;
   isProcessing = true;
@@ -44,12 +50,15 @@ function togglePlayback() {
   });
 }
 
+// 4. Carregar e Normalizar Links
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   let url = urlInput.value.trim();
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
+    // Converte mobile para desktop e limpa parâmetros
     url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
+    
     widget.load(url, {
       auto_play: true,
       callback: () => {
@@ -78,9 +87,12 @@ function prevTrack() {
   widget.prev();
 }
 
-// CORREÇÃO AQUI: Forçamos o estado "playing" e limpamos os handlers de seek
+// 5. Configuração da MediaSession (Forçar Próximo/Anterior)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
+    // RESET TOTAL: Limpar para o navegador esquecer os botões de 10s
+    navigator.mediaSession.metadata = null;
+
     const artwork = sound.artwork_url 
       ? sound.artwork_url.replace("http:", "https:").replace("-large", "-t500x500")
       : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
@@ -88,22 +100,24 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
+      album: "SoundCloud Player",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Força o estado para o navegador habilitar os botões de faixa
+    // Avisa que é uma música (habilita botões de faixa)
     navigator.mediaSession.playbackState = "playing";
 
-    // VINCULAÇÃO DOS BOTÕES
+    // Registrar Ações
     navigator.mediaSession.setActionHandler("play", () => widget.play());
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
 
-    // O SEGREDO: Setar como null explicitamente os comandos de "pular tempo"
-    navigator.mediaSession.setActionHandler('seekbackward', null);
-    navigator.mediaSession.setActionHandler('seekforward', null);
-    try { navigator.mediaSession.setActionHandler('seekto', null); } catch (e) {}
+    // BLOQUEIO EXPLÍCITO de 10 segundos
+    const disableActions = ['seekbackward', 'seekforward', 'seekto'];
+    disableActions.forEach(action => {
+      try { navigator.mediaSession.setActionHandler(action, null); } catch (e) {}
+    });
   }
 }
 
@@ -121,7 +135,8 @@ function updatePlaylistUI() {
 function updateActiveTrackVisual(currentTitle) {
   document.querySelectorAll("#playlistView li").forEach(li => {
     li.classList.remove("active-track");
-    if (li.querySelector(".track-name").innerText === currentTitle) {
+    const nameText = li.querySelector(".track-name").innerText;
+    if (nameText === currentTitle) {
       li.classList.add("active-track");
     }
   });
