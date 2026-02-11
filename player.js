@@ -9,7 +9,6 @@ widget.bind(SC.Widget.Events.READY, () => {
   widget.setVolume(100);
 });
 
-// Sincroniza metadados sempre que a música começar a tocar de fato
 widget.bind(SC.Widget.Events.PLAY, () => {
   updateMetadataRepeatedly();
 });
@@ -32,7 +31,7 @@ function playTrack(index) {
     currentTrackIndex = index;
     widget.load(playlist[index].url, {
       auto_play: true,
-      show_artwork: true, // Garante que a capa seja carregada internamente
+      show_artwork: true,
       callback: () => {
         widget.play();
         updatePlaylistUI();
@@ -41,11 +40,11 @@ function playTrack(index) {
   }
 }
 
-// NAVEGAÇÃO REFORÇADA PARA TELA DE BLOQUEIO
+// NAVEGAÇÃO REFORÇADA: Acorda o áudio antes de processar a troca
 function nextTrack() {
-  widget.next(); // Comando imediato para álbuns
+  widget.play(); // Soco de áudio para o iOS manter a aba ativa
+  widget.next();
 
-  // Verificação para mudar de link na playlist manual
   setTimeout(() => {
     widget.getCurrentSoundIndex((idx) => {
       widget.getSounds((sounds) => {
@@ -57,11 +56,11 @@ function nextTrack() {
         }
       });
     });
-    widget.play(); // Reativa o áudio (crucial para o iOS)
-  }, 500);
+  }, 300); // Tempo reduzido para resposta mais rápida
 }
 
 function prevTrack() {
+  widget.play();
   widget.prev();
 
   setTimeout(() => {
@@ -72,8 +71,7 @@ function prevTrack() {
         playTrack(currentTrackIndex);
       }
     });
-    widget.play(); // Reativa o áudio
-  }, 500);
+  }, 300);
 }
 
 function updateMetadataRepeatedly() {
@@ -86,19 +84,21 @@ function updateMetadataRepeatedly() {
       }
     });
     count++;
-    if (count >= 5) clearInterval(interval); // Aumentei para 5 tentativas
+    if (count >= 5) clearInterval(interval);
   }, 800);
 }
 
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    // Melhoria na captura da capa: tenta a original de alta qualidade
+    // Força HTTPS e resolução correta para a capa aparecer
     let artwork = sound.artwork_url
       ? sound.artwork_url
           .replace("http:", "https:")
           .replace("-large", "-t500x500")
       : sound.user && sound.user.avatar_url
-        ? sound.user.avatar_url.replace("-large", "-t500x500")
+        ? sound.user.avatar_url
+            .replace("http:", "https:")
+            .replace("-large", "-t500x500")
         : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
 
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -113,8 +113,8 @@ function applyMediaSession(sound) {
       ["pause", () => widget.pause()],
       ["previoustrack", () => prevTrack()],
       ["nexttrack", () => nextTrack()],
-      ["seekbackward", null],
-      ["seekforward", null],
+      ["seekbackward", null], // Remove botões de 10s
+      ["seekforward", null], // Remove botões de 10s
     ];
 
     actions.forEach(([action, handler]) => {
