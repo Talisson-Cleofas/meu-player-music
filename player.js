@@ -15,13 +15,41 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
 
+// FUNÇÃO ALTERADA: Agora extrai músicas de álbuns dinamicamente
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
+  const statusDisplay = document.getElementById("status");
+
   if (url.includes("soundcloud.com")) {
-    playlist.push({ url: url, title: "Carregando..." });
-    updatePlaylistUI();
-    if (playlist.length === 1) playTrack(0);
+    statusDisplay.innerText = "Analisando link...";
+
+    // Carregamos o link temporariamente para extrair as faixas
+    widget.load(url, {
+      auto_play: false,
+      callback: () => {
+        widget.getSounds((sounds) => {
+          if (sounds && sounds.length > 0) {
+            // Se for álbum, sounds.length será > 1. Se for música única, será 1.
+            sounds.forEach((track) => {
+              playlist.push({
+                url: track.uri, // Usamos a URI direta da música
+                title: track.title,
+              });
+            });
+
+            statusDisplay.innerText =
+              sounds.length > 1 ? "Álbum adicionado!" : "Música adicionada!";
+            updatePlaylistUI();
+
+            // Se a playlist estava vazia, começa a tocar a primeira do álbum
+            if (playlist.length === sounds.length) {
+              playTrack(0);
+            }
+          }
+        });
+      },
+    });
   }
   urlInput.value = "";
 }
@@ -40,38 +68,21 @@ function playTrack(index) {
   }
 }
 
-// NAVEGAÇÃO REFORÇADA: Acorda o áudio antes de processar a troca
 function nextTrack() {
-  widget.play(); // Soco de áudio para o iOS manter a aba ativa
-  widget.next();
-
-  setTimeout(() => {
-    widget.getCurrentSoundIndex((idx) => {
-      widget.getSounds((sounds) => {
-        if (sounds && idx === sounds.length - 1) {
-          if (playlist.length > 1) {
-            currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
-            playTrack(currentTrackIndex);
-          }
-        }
-      });
-    });
-  }, 300); // Tempo reduzido para resposta mais rápida
+  widget.play(); // Acorda o áudio para o iOS
+  if (playlist.length > 1) {
+    currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+    playTrack(currentTrackIndex);
+  }
 }
 
 function prevTrack() {
   widget.play();
-  widget.prev();
-
-  setTimeout(() => {
-    widget.getCurrentSoundIndex((idx) => {
-      if (idx === 0 && playlist.length > 1) {
-        currentTrackIndex =
-          (currentTrackIndex - 1 + playlist.length) % playlist.length;
-        playTrack(currentTrackIndex);
-      }
-    });
-  }, 300);
+  if (playlist.length > 1) {
+    currentTrackIndex =
+      (currentTrackIndex - 1 + playlist.length) % playlist.length;
+    playTrack(currentTrackIndex);
+  }
 }
 
 function updateMetadataRepeatedly() {
@@ -90,7 +101,6 @@ function updateMetadataRepeatedly() {
 
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    // Força HTTPS e resolução correta para a capa aparecer
     let artwork = sound.artwork_url
       ? sound.artwork_url
           .replace("http:", "https:")
@@ -113,8 +123,8 @@ function applyMediaSession(sound) {
       ["pause", () => widget.pause()],
       ["previoustrack", () => prevTrack()],
       ["nexttrack", () => nextTrack()],
-      ["seekbackward", null], // Remove botões de 10s
-      ["seekforward", null], // Remove botões de 10s
+      ["seekbackward", null],
+      ["seekforward", null],
     ];
 
     actions.forEach(([action, handler]) => {
@@ -134,6 +144,8 @@ function updatePlaylistUI() {
     li.innerHTML = `<strong>${index + 1}.</strong> ${item.title}`;
     li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
     li.style.fontWeight = index === currentTrackIndex ? "bold" : "normal";
+    li.style.padding = "10px 0"; // Melhora o toque no mobile
+    li.style.borderBottom = "1px solid #333";
     li.onclick = () => playTrack(index);
     listElement.appendChild(li);
   });
