@@ -2,15 +2,16 @@ const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 
-// Áudio silencioso para manter o sistema acordado no Mobile
 const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3');
 audioFix.loop = true;
 
 let playlist = [];
+let isPlaying = false; // Variável de controle local
 
 // 1. Quando a música começa a tocar
 widget.bind(SC.Widget.Events.PLAY, () => {
-  btnTogglePlay.innerText = "⏸"; // Muda o botão para ícone de PAUSE
+  isPlaying = true;
+  btnTogglePlay.innerText = "⏸"; // Ícone de Pause
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
@@ -23,20 +24,28 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 // 2. Quando a música pausa
 widget.bind(SC.Widget.Events.PAUSE, () => {
-  btnTogglePlay.innerText = "▶"; // Muda o botão para ícone de PLAY
+  isPlaying = false;
+  btnTogglePlay.innerText = "▶"; // Ícone de Play
 });
 
-widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
+// 3. Lógica do botão único (Sem depender do isPaused lento do Widget)
+function togglePlayback() {
+  if (!isPlaying) {
+    widget.play();
+    audioFix.play().catch(() => {});
+  } else {
+    widget.pause();
+    audioFix.pause();
+  }
+}
 
-// 3. Carregar conteúdo e normalizar links Mobile
+// 4. Normalização e Carga
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   let url = urlInput.value.trim();
 
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
-    
-    // Normaliza links: remove o "m." e limpa rastreadores do celular (?si=...)
     url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
 
     widget.load(url, {
@@ -57,19 +66,7 @@ async function handleAddContent() {
   urlInput.value = "";
 }
 
-// 4. Lógica do botão único Play/Pause
-function togglePlayback() {
-  widget.isPaused((paused) => {
-    if (paused) {
-      widget.play();
-      audioFix.play().catch(() => {});
-    } else {
-      widget.pause();
-      audioFix.pause();
-    }
-  });
-}
-
+// Funções de navegação
 function nextTrack() {
   audioFix.play().catch(() => {});
   widget.next();
@@ -96,8 +93,6 @@ function applyMediaSession(sound) {
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
-    
-    // Esconde os botões de 10 segundos
     navigator.mediaSession.setActionHandler('seekbackward', null);
     navigator.mediaSession.setActionHandler('seekforward', null);
   }
@@ -124,10 +119,9 @@ function updateActiveTrackVisual(currentTitle) {
   });
 }
 
-// 5. Configuração final dos eventos
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
-  btnTogglePlay.onclick = togglePlayback; // Evento do botão único
+  btnTogglePlay.onclick = togglePlayback;
   document.getElementById("btnNext").onclick = nextTrack;
   document.getElementById("btnPrev").onclick = prevTrack;
 });
