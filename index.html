@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Music Player</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="player-card">
+      <h2>Web Music Player</h2>
+
+      <div class="input-group">
+        <input type="text" id="videoUrl" placeholder="Cole o link do YouTube" />
+        <button id="btnLoad">Carregar</button>
+      </div>
+
+      <div class="controls">
+        <button id="btnPrev" class="btn-secondary">⏮</button>
+        <button id="btnPlay" class="btn-main">▶</button>
+        <button id="btnPause" class="btn-main">⏸</button>
+        <button id="btnNext" class="btn-secondary">⏭</button>
+      </div>
+
+      <div class="playlist-container">
+        <h4>Fila de Reprodução</h4>
+        <ul id="playlistView"></ul>
+      </div>
+
+      <div class="status-container">
+        <div id="status" class="status-text">Aguardando comando...</div>
+      </div>
+
+      <div id="youtube-player-container" style="display: none">
+        <div id="youtube-player"></div>
+      </div>
+    </main>
+
+    <script src="player.js"></script>
+  </body>
+</html>
