@@ -208,13 +208,13 @@ li:hover {
 
 #youtube-player-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 10px;
-    height: 10px;
-    opacity: 0.01;
-    z-index: -1;
-    overflow: hidden;
+    top: 10px;
+    left: 10px;
+    width: 40px;
+    height: 40px;
+    opacity: 0.1; /* Deixe um pouco visível para o Safari não silenciar */
+    z-index: 9999;
+    pointer-events: auto; /* Permite que o iOS registre o toque */
 }
 
 #youtube-player {

@@ -15,26 +15,30 @@ document.head.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    height: "100%",
-    width: "100%",
+    height: "200",
+    width: "200",
     playerVars: {
       playsinline: 1,
       autoplay: 0,
       controls: 1,
-      disablekb: 1,
-      fs: 1,
-      origin: window.location.origin,
-      widget_referrer: window.location.origin,
-      host: "https://www.youtube-nocookie.com",
+      mute: 0,
+      enablejsapi: 1,
     },
     events: {
-      onStateChange: onPlayerStateChange,
       onReady: (event) => {
         event.target.setVolume(100);
-        console.log("Player pronto");
       },
+      onStateChange: onPlayerStateChange,
     },
   });
+}
+
+// Chame esta função explicitamente no clique do botão Play
+function forceAudioPlay() {
+  silentAudio.play().catch(() => {});
+  player.unMute();
+  player.setVolume(100);
+  player.playVideo();
 }
 
 // TÉCNICA PARA IOS: Mantém o canal de áudio aberto
