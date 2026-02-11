@@ -3,9 +3,9 @@ let playlist = [];
 let currentTrackIndex = 0;
 let wakeLock = null;
 
-// Áudio silencioso para manter o canal de áudio do iOS aberto
+// Áudio de suporte: Essencial para o iOS não suspender o processo de rede
 const silentAudio = new Audio(
-  "https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3",
+  "https://raw.githubusercontent.com/anars/blank-audio/master/10-minutes-of-silence.mp3",
 );
 silentAudio.loop = true;
 
@@ -15,17 +15,17 @@ document.head.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    height: "1",
-    width: "1",
+    height: "200", // Tamanho visível ajuda a manter o processo ativo no iOS
+    width: "100%",
     playerVars: {
       playsinline: 1,
       autoplay: 0,
-      controls: 1,
+      controls: 1, // Ativar controles nativos facilita o modo Picture-in-Picture
       disablekb: 1,
       fs: 1,
       origin: window.location.origin,
       widget_referrer: window.location.origin,
-      host: "https://www.youtube-nocookie.com", // Tenta reduzir ads
+      host: "https://www.youtube-nocookie.com",
     },
     events: {
       onStateChange: onPlayerStateChange,
@@ -34,10 +34,13 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-// TÉCNICA PARA IOS: Detecta quando você bloqueia a tela ou sai da aba
+// TÉCNICA PARA IOS: Mantém o áudio "quente" ao trocar de aba ou bloquear
 document.addEventListener("visibilitychange", function () {
-  if (document.hidden) {
-    // Se a tela bloqueou, garantimos que o silentAudio force o sistema
+  if (
+    document.hidden &&
+    player &&
+    player.getPlayerState() === YT.PlayerState.PLAYING
+  ) {
     silentAudio.play().catch(() => {});
   }
 });
@@ -55,18 +58,24 @@ function updateMediaMetadata() {
     const videoData = player.getVideoData();
     navigator.mediaSession.metadata = new MediaMetadata({
       title: videoData.title,
-      artist: videoData.author || "Web Player",
+      artist: videoData.author || "Web Music Player",
       artwork: [
         {
-          src: `https://img.youtube.com/vi/${videoData.video_id}/hqdefault.jpg`,
+          src: `https://img.youtube.com/vi/${videoData.video_id}/maxresdefault.jpg`,
           sizes: "512x512",
           type: "image/jpg",
         },
       ],
     });
 
-    navigator.mediaSession.setActionHandler("play", () => player.playVideo());
-    navigator.mediaSession.setActionHandler("pause", () => player.pauseVideo());
+    navigator.mediaSession.setActionHandler("play", () => {
+      player.playVideo();
+      silentAudio.play();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      player.pauseVideo();
+      silentAudio.pause();
+    });
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
   }
@@ -114,6 +123,7 @@ function playTrack(index) {
     currentTrackIndex = index;
     player.loadVideoById(playlist[currentTrackIndex].id);
     updatePlaylistUI();
+    // Ativa o áudio silencioso simultaneamente
     silentAudio.play().catch(() => {});
   }
 }
@@ -149,7 +159,6 @@ function onPlayerStateChange(event) {
   }
 }
 
-// ... (Mantenha suas funções de removeFromPlaylist, updatePlaylistUI e utilitários iguais)
 function removeFromPlaylist(index) {
   if (index === currentTrackIndex) {
     playlist.splice(index, 1);
@@ -211,8 +220,9 @@ document.getElementById("btnPlay").addEventListener("click", () => {
   player.playVideo();
   silentAudio.play().catch(() => {});
 });
-document
-  .getElementById("btnPause")
-  .addEventListener("click", () => player.pauseVideo());
+document.getElementById("btnPause").addEventListener("click", () => {
+  player.pauseVideo();
+  silentAudio.pause();
+});
 document.getElementById("btnNext").addEventListener("click", nextTrack);
 document.getElementById("btnPrev").addEventListener("click", prevTrack);
