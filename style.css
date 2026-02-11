@@ -224,3 +224,37 @@ li:hover {
     opacity: 0;
     pointer-events: none;
 }
+.album-selector {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-album {
+  background: #282828;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.btn-album:hover {
+  border-color: #ff5500;
+  background: #333;
+}
+
+/* Quando a repetição estiver ligada, o botão fica laranja */
+.btn-repeat-active {
+    color: #ff5500 !important;
+    border-color: #ff5500 !important;
+    transform: scale(1.1);
+}

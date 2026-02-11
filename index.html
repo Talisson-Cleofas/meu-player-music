@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Music Player (SoundCloud)</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
     <link rel="stylesheet" href="style.css" />
     <style>
       .hidden-player {
@@ -22,23 +25,31 @@
   <body>
     <main class="player-card">
       <h2>SoundCloud Player</h2>
-
-      <div class="input-group">
-        <input type="text" id="videoUrl" placeholder="Cole o link do SoundCloud" />
+         <div class="input-group">
+        <input
+          type="text"
+          id="videoUrl"
+          placeholder="Cole o link do SoundCloud"
+        />
         <button id="btnLoad">Carregar</button>
+      </div
+      <div class="album-selector">
+        <h4>Meus Álbuns</h4>
+        <div id="albumButtons" class="album-grid"></div>
       </div>
 
       <div class="controls">
-        <button id="btnPrev" class="btn-secondary"><i class="fas fa-backward"></i></button>
+        <button id="btnPrev" class="btn-secondary">
+          <i class="fas fa-backward"></i>
+        </button>
         <button id="btnTogglePlay" class="btn-main">
           <i id="playIcon" class="fas fa-play"></i>
-        </button> 
-        <button id="btnNext" class="btn-secondary"><i class="fas fa-forward"></i></button>
-      </div>
+        </button>
+        <button id="btnNext" class="btn-secondary">
+          <i class="fas fa-forward"></i>
 
-      <div class="playlist-container">
-        <h4>Fila de Reprodução</h4>
-        <ul id="playlistView"></ul>
+          </button>
+        </button>
       </div>
 
       <div class="status-container">
@@ -57,6 +68,13 @@
         >
         </iframe>
       </div>
+      
+      <div class="playlist-container">
+        <h4>Fila de Reprodução</h4>
+        <ul id="playlistView"></ul>
+      </div>
+
+
     </main>
 
     <script src="https://w.soundcloud.com/player/api.js"></script>
