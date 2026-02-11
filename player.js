@@ -52,7 +52,7 @@ function prevTrack() {
   widget.prev();
 }
 
-// 5. ATUALIZADO: Media Session (Forçando Setas e Corrigindo 10s)
+// 5. ATUALIZADO: Media Session (Forçando Setas e Corrigindo 
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -62,29 +62,30 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
-      album: "Minha Playlist", // Definir um álbum ajuda a ativar as setas
+      album: "Playlist Ativa",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Mapeamento de ações
-    const actionHandlers = [
-      ["play", () => widget.play()],
-      ["pause", () => widget.pause()],
-      ["nexttrack", () => nextTrack()],
-      ["previoustrack", () => prevTrack()],
-      // FORÇA O SUMIÇO DOS 10s: Ao setar como null, o navegador esconde os botões de tempo
-      ["seekbackward", null],
-      ["seekforward", null],
-      ["seekto", null]
-    ];
+    // RE-BINDING DIRETO: Forçamos o play após o skip para o navegador não pausar
+    navigator.mediaSession.setActionHandler("play", () => widget.play());
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
 
-    actionHandlers.forEach(([action, handler]) => {
-      try {
-        navigator.mediaSession.setActionHandler(action, handler);
-      } catch (e) {
-        console.log(`Ação ${action} não suportada.`);
-      }
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      widget.next();
+      // Soco de áudio: Força o play após 100ms para garantir que a troca ocorra
+      setTimeout(() => widget.play(), 100);
     });
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      widget.prev();
+      setTimeout(() => widget.play(), 100);
+    });
+
+    // Remove os botões de 10s
+    try {
+      navigator.mediaSession.setActionHandler('seekbackward', null);
+      navigator.mediaSession.setActionHandler('seekforward', null);
+    } catch (e) {}
   }
 }
 
