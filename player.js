@@ -14,12 +14,12 @@ widget.bind(SC.Widget.Events.PLAY, () => {
   });
 });
 
-// 2. Quando o álbum acabar ou uma música terminar
+// 2. Quando o álbum acabar
 widget.bind(SC.Widget.Events.FINISH, () => {
-  widget.next();
+  nextTrack();
 });
 
-// 3. Adiciona conteúdo (Álbum Inteiro)
+// 3. Adiciona conteúdo
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
@@ -34,7 +34,8 @@ async function handleAddContent() {
           if (sounds) {
             playlist = sounds.map(s => ({ title: s.title }));
             updatePlaylistUI();
-            widget.play();
+            // Pequeno delay para garantir o play inicial
+            setTimeout(() => widget.play(), 500);
           }
         });
       }
@@ -43,16 +44,24 @@ async function handleAddContent() {
   urlInput.value = "";
 }
 
-// 4. Navegação
+// 4. Navegação FORÇADA (O segredo para a tela de bloqueio)
 function nextTrack() {
+  // Tentativa 1: Comando via API
   widget.next();
+  // Tentativa 2: Comando via PostMessage (Fura o bloqueio do Iframe)
+  widgetIframe.contentWindow.postMessage(JSON.stringify({ method: 'next' }), '*');
+  
+  // Força o áudio a continuar
+  setTimeout(() => widget.play(), 200);
 }
 
 function prevTrack() {
   widget.prev();
+  widgetIframe.contentWindow.postMessage(JSON.stringify({ method: 'prev' }), '*');
+  setTimeout(() => widget.play(), 200);
 }
 
-// 5. ATUALIZADO: Media Session (Forçando Setas e Corrigindo 
+// 5. Media Session Ultra-Resiliente
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -62,26 +71,19 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
-      album: "Playlist Ativa",
+      album: "Tocando do SoundCloud",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // RE-BINDING DIRETO: Forçamos o play após o skip para o navegador não pausar
+    // Handlers
     navigator.mediaSession.setActionHandler("play", () => widget.play());
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    
+    // Vinculamos os botões de pular às nossas funções forçadas
+    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
+    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
 
-    navigator.mediaSession.setActionHandler("nexttrack", () => {
-      widget.next();
-      // Soco de áudio: Força o play após 100ms para garantir que a troca ocorra
-      setTimeout(() => widget.play(), 100);
-    });
-
-    navigator.mediaSession.setActionHandler("previoustrack", () => {
-      widget.prev();
-      setTimeout(() => widget.play(), 100);
-    });
-
-    // Remove os botões de 10s
+    // Desativa os 10s para garantir as setas
     try {
       navigator.mediaSession.setActionHandler('seekbackward', null);
       navigator.mediaSession.setActionHandler('seekforward', null);
