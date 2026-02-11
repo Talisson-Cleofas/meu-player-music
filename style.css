@@ -208,13 +208,15 @@ li:hover {
 
 #youtube-player-container {
     position: fixed;
-    top: 10px;
-    left: 10px;
-    width: 60px; /* Tamanho pequeno, mas existente */
-    height: 50px;
-    opacity: 0.15; /* Quase invisível, mas não zero */
+    top: 5px;
+    left: 5px;
+    width: 60px; /* Tamanho para permitir o toque manual se necessário */
+    height: 60px;
+    opacity: 0.15; /* Safari silencia vídeos com opacidade 0 */
     z-index: 9999;
-    pointer-events: none;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
 }
 
 #youtube-player {
