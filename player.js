@@ -1,69 +1,53 @@
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
+const btnTogglePlay = document.getElementById("btnTogglePlay");
 
-// CRUCIAL: Criamos um áudio silencioso para manter o sistema acordado
+// Áudio silencioso para manter o sistema acordado no Mobile
 const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3');
 audioFix.loop = true;
 
 let playlist = [];
 
-widget.bind(SC.Widget.Events.READY, () => {
-  document.getElementById("status").innerText = "Pronto!";
-});
-
+// 1. Quando a música começa a tocar
 widget.bind(SC.Widget.Events.PLAY, () => {
+  btnTogglePlay.innerText = "⏸"; // Muda o botão para ícone de PAUSE
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
       applyMediaSession(sound);
       updateActiveTrackVisual(sound.title);
-      // Quando o SoundCloud toca, iniciamos o áudio silencioso para "segurar" o canal
       audioFix.play().catch(() => {});
     }
   });
 });
 
+// 2. Quando a música pausa
+widget.bind(SC.Widget.Events.PAUSE, () => {
+  btnTogglePlay.innerText = "▶"; // Muda o botão para ícone de PLAY
+});
+
 widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
 
+// 3. Carregar conteúdo e normalizar links Mobile
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   let url = urlInput.value.trim();
-  const statusElement = document.getElementById("status");
 
   if (url.includes("soundcloud.com")) {
-    statusElement.innerText = "Normalizando link...";
-
-    // 1. CONVERSÃO DE LINK MOBILE PARA DESKTOP
-    // Remove o "m." (mobile) e substitui por "www."
-    url = url.replace("m.soundcloud.com", "soundcloud.com");
+    document.getElementById("status").innerText = "Sintonizando...";
     
-    // Se for link curto (on.soundcloud.com), ele precisa ser expandido (opcional, mas o replace resolve o principal)
-    // O Widget costuma aceitar o soundcloud.com puro melhor que o m.soundcloud.com
+    // Normaliza links: remove o "m." e limpa rastreadores do celular (?si=...)
+    url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
 
-    statusElement.innerText = "Sintonizando...";
-    
     widget.load(url, {
       auto_play: true,
-      show_artwork: true, // Garante que os metadados venham junto
       callback: () => {
-        // Pequeno delay para o widget processar a mudança de domínio
         setTimeout(() => {
           widget.getSounds((sounds) => {
-            if (sounds && sounds.length > 0) {
+            if (sounds) {
               playlist = sounds.map(s => ({ title: s.title }));
               updatePlaylistUI();
-              statusElement.innerText = "Pronto!";
               widget.play();
-            } else {
-              // Fallback para música única se getSounds falhar
-              widget.getCurrentSound((s) => {
-                if(s) {
-                   playlist = [{ title: s.title }];
-                   updatePlaylistUI();
-                } else {
-                   statusElement.innerText = "Erro: Link móvel incompatível.";
-                }
-              });
             }
           });
         }, 1000);
@@ -73,17 +57,22 @@ async function handleAddContent() {
   urlInput.value = "";
 }
 
+// 4. Lógica do botão único Play/Pause
+function togglePlayback() {
+  widget.isPaused((paused) => {
+    if (paused) {
+      widget.play();
+      audioFix.play().catch(() => {});
+    } else {
+      widget.pause();
+      audioFix.pause();
+    }
+  });
+}
 
-// NAVEGAÇÃO: Agora o comando é disparado com prioridade máxima
 function nextTrack() {
-  // 1. Acorda o sistema
   audioFix.play().catch(() => {});
-  // 2. Comanda o widget
   widget.next();
-  // 3. Força a UI a se manter ativa
-  if ("mediaSession" in navigator) {
-    navigator.mediaSession.playbackState = "playing";
-  }
 }
 
 function prevTrack() {
@@ -100,25 +89,15 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
-      album: "SoundCloud Player",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Mapeamos os botões DIRETAMENTE para as funções de navegação
-    navigator.mediaSession.setActionHandler("play", () => {
-        widget.play();
-        audioFix.play();
-    });
-    navigator.mediaSession.setActionHandler("pause", () => {
-        widget.pause();
-        audioFix.pause();
-    });
+    navigator.mediaSession.setActionHandler("play", () => widget.play());
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
+    navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
     
-    // Vinculação direta para tela de bloqueio
-    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
-    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
-
-    // Remove botões de 10s
+    // Esconde os botões de 10 segundos
     navigator.mediaSession.setActionHandler('seekbackward', null);
     navigator.mediaSession.setActionHandler('seekforward', null);
   }
@@ -145,10 +124,10 @@ function updateActiveTrackVisual(currentTitle) {
   });
 }
 
+// 5. Configuração final dos eventos
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
-  document.getElementById("btnPlay").onclick = () => { widget.play(); audioFix.play(); };
-  document.getElementById("btnPause").onclick = () => { widget.pause(); audioFix.pause(); };
+  btnTogglePlay.onclick = togglePlayback; // Evento do botão único
   document.getElementById("btnNext").onclick = nextTrack;
   document.getElementById("btnPrev").onclick = prevTrack;
 });
