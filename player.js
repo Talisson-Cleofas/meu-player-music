@@ -3,13 +3,12 @@ let playlist = [];
 let currentTrackIndex = 0;
 let wakeLock = null;
 
-// Elemento para o "hack" de áudio de fundo (opcional, mas ajuda)
+// Áudio silencioso para manter o canal de áudio do iOS aberto
 const silentAudio = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3",
 );
 silentAudio.loop = true;
 
-// 1. Inicialização da API do YouTube
 const tag = document.createElement("script");
 tag.src = "https://www.youtube.com/iframe_api";
 document.head.appendChild(tag);
@@ -19,9 +18,12 @@ function onYouTubeIframeAPIReady() {
     height: "1",
     width: "1",
     playerVars: {
-      playsinline: 1, // Crucial para mobile não dar zoom
+      playsinline: 1,
       autoplay: 0,
       controls: 0,
+      origin: window.location.origin,
+      widget_referrer: window.location.origin,
+      host: "https://www.youtube-nocookie.com", // Tenta reduzir ads
     },
     events: {
       onStateChange: onPlayerStateChange,
@@ -30,27 +32,31 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-// 2. Wake Lock: Impede o PC/Celular de entrar em Standby
+// TÉCNICA PARA IOS: Detecta quando você bloqueia a tela ou sai da aba
+document.addEventListener("visibilitychange", function () {
+  if (document.hidden) {
+    // Se a tela bloqueou, garantimos que o silentAudio force o sistema
+    silentAudio.play().catch(() => {});
+  }
+});
+
 async function requestWakeLock() {
   try {
     if ("wakeLock" in navigator) {
       wakeLock = await navigator.wakeLock.request("screen");
     }
-  } catch (err) {
-    console.log("Wake Lock não suportado.");
-  }
+  } catch (err) {}
 }
 
-// 3. Media Session: Controle pela tela de bloqueio
 function updateMediaMetadata() {
   if ("mediaSession" in navigator) {
     const videoData = player.getVideoData();
     navigator.mediaSession.metadata = new MediaMetadata({
       title: videoData.title,
-      artist: videoData.author || "Web Music Player",
+      artist: videoData.author || "Web Player",
       artwork: [
         {
-          src: `https://img.youtube.com/vi/${videoData.video_id}/maxresdefault.jpg`,
+          src: `https://img.youtube.com/vi/${videoData.video_id}/hqdefault.jpg`,
           sizes: "512x512",
           type: "image/jpg",
         },
@@ -64,7 +70,6 @@ function updateMediaMetadata() {
   }
 }
 
-// 4. Lógica de Conteúdo
 async function handleAddContent() {
   const url = document.getElementById("videoUrl").value;
   const videoId = extractVideoID(url);
@@ -72,13 +77,11 @@ async function handleAddContent() {
 
   if (playlistId) {
     player.cuePlaylist({ listType: "playlist", list: playlistId, index: 0 });
-    document.getElementById("status").innerText = "Playlist preparada!";
-    addToPlaylistArray(videoId || "", "🎬 Álbum/Playlist Ativa");
+    document.getElementById("status").innerText = "Playlist pronta!";
+    addToPlaylistArray(videoId || "", "🎬 Playlist Ativa");
   } else if (videoId) {
     const title = await getVideoTitle(videoId);
     addToPlaylistArray(videoId, title);
-  } else {
-    alert("Link inválido!");
   }
   document.getElementById("videoUrl").value = "";
 }
@@ -91,48 +94,39 @@ async function getVideoTitle(videoId) {
     const data = await response.json();
     return data.title;
   } catch (e) {
-    return "Vídeo Desconhecido";
+    return "Música Desconhecida";
   }
 }
 
 function addToPlaylistArray(id, title) {
   playlist.push({ id, title });
   updatePlaylistUI();
-
-  // No mobile, se for o primeiro, apenas damos o "CUE" (preparar)
-  // O usuário DEVE clicar no botão PLAY verde para iniciar o áudio pela primeira vez
-  if (playlist.length === 1 && !title.includes("Álbum")) {
+  if (playlist.length === 1) {
     player.cueVideoById(id);
-    document.getElementById("status").innerText = "Clique no Play para iniciar";
+    document.getElementById("status").innerText = "Aperte Play para iniciar";
   }
 }
 
-// 5. Controles
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
     player.loadVideoById(playlist[currentTrackIndex].id);
     updatePlaylistUI();
-    // Tenta iniciar o áudio silencioso para manter o processo vivo
     silentAudio.play().catch(() => {});
   }
 }
 
 function nextTrack() {
   const ytPlaylist = player.getPlaylist();
-  const currentIndex = player.getPlaylistIndex();
-  if (ytPlaylist && currentIndex < ytPlaylist.length - 1) {
+  if (ytPlaylist && player.getPlaylistIndex() < ytPlaylist.length - 1) {
     player.nextVideo();
   } else if (currentTrackIndex + 1 < playlist.length) {
     playTrack(currentTrackIndex + 1);
-  } else {
-    document.getElementById("status").innerText = "Fim da fila";
   }
 }
 
 function prevTrack() {
-  const currentIndex = player.getPlaylistIndex();
-  if (currentIndex !== undefined && currentIndex > 0) {
+  if (player.getPlaylistIndex() > 0) {
     player.previousVideo();
   } else if (currentTrackIndex - 1 >= 0) {
     playTrack(currentTrackIndex - 1);
@@ -151,16 +145,9 @@ function onPlayerStateChange(event) {
     updateMediaMetadata();
     silentAudio.play().catch(() => {});
   }
-
-  if (event.data === YT.PlayerState.PAUSED) {
-    status.innerText = "Pausado: " + videoData.title;
-    if (wakeLock) {
-      wakeLock.release().then(() => (wakeLock = null));
-    }
-  }
 }
 
-// 6. Interface e Remoção
+// ... (Mantenha suas funções de removeFromPlaylist, updatePlaylistUI e utilitários iguais)
 function removeFromPlaylist(index) {
   if (index === currentTrackIndex) {
     playlist.splice(index, 1);
@@ -205,7 +192,6 @@ function updatePlaylistUI() {
   });
 }
 
-// Utilitários
 function extractVideoID(url) {
   const regExp =
     /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -218,7 +204,6 @@ function extractPlaylistID(url) {
   return match ? match[1] : null;
 }
 
-// Listeners
 document.getElementById("btnLoad").addEventListener("click", handleAddContent);
 document.getElementById("btnPlay").addEventListener("click", () => {
   player.playVideo();
