@@ -20,7 +20,9 @@ function onYouTubeIframeAPIReady() {
     playerVars: {
       playsinline: 1,
       autoplay: 0,
-      controls: 0,
+      controls: 1,
+      disablekb: 1,
+      fs: 1,
       origin: window.location.origin,
       widget_referrer: window.location.origin,
       host: "https://www.youtube-nocookie.com", // Tenta reduzir ads
