@@ -133,11 +133,26 @@ function updatePlaylistUI() {
 }
 
 function updateActiveTrackVisual(currentTitle) {
-  document.querySelectorAll("#playlistView li").forEach(li => {
+  const items = document.querySelectorAll("#playlistView li");
+  
+  items.forEach(li => {
+    // Remove o estado ativo e qualquer equalizador existente
     li.classList.remove("active-track");
+    const existingEq = li.querySelector(".now-playing-equalizer");
+    if (existingEq) existingEq.remove();
+
+    // Se o nome da música for igual ao que está tocando
     const nameText = li.querySelector(".track-name").innerText;
     if (nameText === currentTitle) {
       li.classList.add("active-track");
+
+      // Cria o elemento do equalizador
+      const eq = document.createElement("div");
+      eq.className = "now-playing-equalizer";
+      eq.innerHTML = "<span></span><span></span><span></span>";
+      
+      // Adiciona o equalizador ao lado do nome
+      li.appendChild(eq);
     }
   });
 }
