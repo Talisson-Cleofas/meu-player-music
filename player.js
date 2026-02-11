@@ -6,12 +6,13 @@ const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/
 audioFix.loop = true;
 
 let playlist = [];
-let isPlaying = false; // Variável de controle local
+let isProcessing = false; // Evita cliques múltiplos que travam o pause
 
-// 1. Quando a música começa a tocar
+// 1. Sincronização de PLAY
 widget.bind(SC.Widget.Events.PLAY, () => {
-  isPlaying = true;
-  btnTogglePlay.innerText = "⏸"; // Ícone de Pause
+  btnTogglePlay.innerText = "⏸";
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
@@ -22,21 +23,36 @@ widget.bind(SC.Widget.Events.PLAY, () => {
   });
 });
 
-// 2. Quando a música pausa
+// 2. Sincronização de PAUSE
 widget.bind(SC.Widget.Events.PAUSE, () => {
-  isPlaying = false;
-  btnTogglePlay.innerText = "▶"; // Ícone de Play
+  btnTogglePlay.innerText = "▶";
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  audioFix.pause();
 });
 
-// 3. Lógica do botão único (Sem depender do isPaused lento do Widget)
+// 3. Lógica do Botão Único (Corrigida para Navegador)
 function togglePlayback() {
-  if (!isPlaying) {
-    widget.play();
-    audioFix.play().catch(() => {});
-  } else {
-    widget.pause();
-    audioFix.pause();
-  }
+  if (isProcessing) return;
+  isProcessing = true;
+
+  // Perguntamos o estado real ao Widget antes de agir
+  widget.isPaused((paused) => {
+    if (paused) {
+      widget.play();
+      audioFix.play().catch(() => {});
+    } else {
+      widget.pause();
+      // Reforço: Se o primeiro pause falhar (comum no Safari/Chrome), tenta de novo em 50ms
+      setTimeout(() => {
+        widget.isPaused((stillPlaying) => {
+          if (!stillPlaying) widget.pause();
+        });
+      }, 50);
+    }
+    
+    // Libera o botão após um curto delay
+    setTimeout(() => { isProcessing = false; }, 300);
+  });
 }
 
 // 4. Normalização e Carga
@@ -46,6 +62,8 @@ async function handleAddContent() {
 
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
+    
+    // Limpa links móveis e parâmetros de rastreio
     url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
 
     widget.load(url, {
@@ -53,7 +71,7 @@ async function handleAddContent() {
       callback: () => {
         setTimeout(() => {
           widget.getSounds((sounds) => {
-            if (sounds) {
+            if (sounds && sounds.length > 0) {
               playlist = sounds.map(s => ({ title: s.title }));
               updatePlaylistUI();
               widget.play();
@@ -66,7 +84,6 @@ async function handleAddContent() {
   urlInput.value = "";
 }
 
-// Funções de navegação
 function nextTrack() {
   audioFix.play().catch(() => {});
   widget.next();
