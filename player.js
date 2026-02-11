@@ -9,7 +9,7 @@ widget.bind(SC.Widget.Events.READY, () => {
   widget.setVolume(100);
 });
 
-// Toda vez que a música der PLAY, forçamos os metadados várias vezes
+// Sincroniza metadados sempre que a música começar a tocar de fato
 widget.bind(SC.Widget.Events.PLAY, () => {
   updateMetadataRepeatedly();
 });
@@ -32,6 +32,7 @@ function playTrack(index) {
     currentTrackIndex = index;
     widget.load(playlist[index].url, {
       auto_play: true,
+      show_artwork: true, // Garante que a capa seja carregada internamente
       callback: () => {
         widget.play();
         updatePlaylistUI();
@@ -40,32 +41,41 @@ function playTrack(index) {
   }
 }
 
+// NAVEGAÇÃO REFORÇADA PARA TELA DE BLOQUEIO
 function nextTrack() {
-  widget.getSounds((sounds) => {
+  widget.next(); // Comando imediato para álbuns
+
+  // Verificação para mudar de link na playlist manual
+  setTimeout(() => {
     widget.getCurrentSoundIndex((idx) => {
-      if (sounds && idx < sounds.length - 1) {
-        widget.next();
-      } else if (playlist.length > 1) {
-        currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
-        playTrack(currentTrackIndex);
-      }
+      widget.getSounds((sounds) => {
+        if (sounds && idx === sounds.length - 1) {
+          if (playlist.length > 1) {
+            currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+            playTrack(currentTrackIndex);
+          }
+        }
+      });
     });
-  });
+    widget.play(); // Reativa o áudio (crucial para o iOS)
+  }, 500);
 }
 
 function prevTrack() {
-  widget.getCurrentSoundIndex((idx) => {
-    if (idx > 0) {
-      widget.prev();
-    } else if (playlist.length > 1) {
-      currentTrackIndex =
-        (currentTrackIndex - 1 + playlist.length) % playlist.length;
-      playTrack(currentTrackIndex);
-    }
-  });
+  widget.prev();
+
+  setTimeout(() => {
+    widget.getCurrentSoundIndex((idx) => {
+      if (idx === 0 && playlist.length > 1) {
+        currentTrackIndex =
+          (currentTrackIndex - 1 + playlist.length) % playlist.length;
+        playTrack(currentTrackIndex);
+      }
+    });
+    widget.play(); // Reativa o áudio
+  }, 500);
 }
 
-// FUNÇÃO REFORÇADA: Tenta atualizar 3 vezes para garantir que o iOS aceite
 function updateMetadataRepeatedly() {
   let count = 0;
   const interval = setInterval(() => {
@@ -76,18 +86,20 @@ function updateMetadataRepeatedly() {
       }
     });
     count++;
-    if (count >= 3) clearInterval(interval);
-  }, 1000);
+    if (count >= 5) clearInterval(interval); // Aumentei para 5 tentativas
+  }, 800);
 }
 
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    // Forçamos a imagem para HTTPS e um tamanho que o iOS aceite
-    const artwork = sound.artwork_url
+    // Melhoria na captura da capa: tenta a original de alta qualidade
+    let artwork = sound.artwork_url
       ? sound.artwork_url
           .replace("http:", "https:")
           .replace("-large", "-t500x500")
-      : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
+      : sound.user && sound.user.avatar_url
+        ? sound.user.avatar_url.replace("-large", "-t500x500")
+        : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title || "SoundCloud",
@@ -96,13 +108,11 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // RE-REGISTRAR OS HANDLERS (Obrigatório para remover os botões de 10s)
     const actions = [
       ["play", () => widget.play()],
       ["pause", () => widget.pause()],
       ["previoustrack", () => prevTrack()],
       ["nexttrack", () => nextTrack()],
-      // O segredo para remover os botões de 10s é declarar seek como null explicitamente
       ["seekbackward", null],
       ["seekforward", null],
     ];
@@ -122,7 +132,8 @@ function updatePlaylistUI() {
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<strong>${index + 1}.</strong> ${item.title}`;
-    li.className = index === currentTrackIndex ? "active-track" : "";
+    li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
+    li.style.fontWeight = index === currentTrackIndex ? "bold" : "normal";
     li.onclick = () => playTrack(index);
     listElement.appendChild(li);
   });
