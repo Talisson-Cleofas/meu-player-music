@@ -1,3 +1,4 @@
+/* --- CONFIGURAÇÕES GERAIS --- */
 body {
     background-color: #121212;
     color: white;
@@ -37,7 +38,6 @@ input {
 }
 
 input:focus {
-    /* Cor laranja do SoundCloud para combinar */
     border-color: #ff5500; 
 }
 
@@ -71,19 +71,27 @@ input:focus {
     margin: 25px 0;
 }
 
+.controls button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+
 .btn-main {
     background: #ff5500;
     border: none;
     width: 55px;
     height: 55px;
     color: white;
-    font-size: 1.2rem;
     border-radius: 50%;
-    cursor: pointer;
     transition: all 0.2s ease;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+}
+
+.btn-main i {
+    font-size: 1.4rem;
 }
 
 .btn-main:hover {
@@ -96,16 +104,23 @@ input:focus {
     border: 1px solid #444;
     color: #b3b3b3;
     border-radius: 50%;
-    cursor: pointer;
     width: 42px;
     height: 42px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     transition: all 0.3s;
 }
 
-/* --- STATUS --- */
+.btn-secondary i {
+    font-size: 1rem;
+}
+
+/* Força ícones Font Awesome no Mobile */
+.controls i {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+}
+
+/* --- STATUS (MARQUEE) --- */
 .status-container {
     margin-top: 15px;
     background: #000;
@@ -157,85 +172,55 @@ li {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    transition: background 0.2s;
 }
 
 li:hover {
     background: #333;
 }
 
-/* --- PLAYER ESCONDIDO (SoundCloud Widget) --- */
-#sc-player-container {
-    position: fixed;
-    top: -9999px; /* Joga para fora da tela para não poluir o visual */
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: .controls button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+/* Estilo para a faixa ativa */
+.active-track {
+    background: rgba(255, 85, 0, 0.15) !important;
+    color: #ff5500 !important;
+    font-weight: bold;
 }
 
-.btn-main i {
-  font-size: 1.4rem; /* Tamanho do Play/Pause */
-}
-
-.btn-secondary i {
-  font-size: 1rem; /* Tamanho do Anterior/Próximo */
-}
-
-/* Força o ícone a ignorar estilos do sistema mobile */
-.controls i {
-    font-family: "Font Awesome 6 Free" !important;
-    font-weight: 900 !important;
-    font-style: normal !important;
-    display: inline-block !important;
-    text-decoration: inherit;
-    -webkit-font-smoothing: antialiased;
-    appearance: none; /* Remove estilo padrão de botão mobile */
-}
-
-/* Garante que o botão não mude de cor ou fonte ao ser clicado no mobile */
-.controls button {
-    -webkit-tap-highlight-color: transparent;
-    outline: none;
-}
-
-/* Container do Equalizador */
+/* --- EQUALIZADOR ANIMADO --- */
 .now-playing-equalizer {
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  width: 13px;
-  height: 13px;
-  margin-left: 8px;
+    display: flex !important;
+    align-items: flex-end;
+    justify-content: space-between;
+    width: 16px;
+    height: 14px;
+    margin-left: 10px;
+    flex-shrink: 0;
 }
 
-/* As Barrinhas */
 .now-playing-equalizer span {
-  width: 3px;
-  background-color: #ff5500; /* Cor padrão SoundCloud, mude se quiser */
-  border-radius: 1px;
-  animation: bounce 0.5s ease-in-out infinite alternate;
+    display: block !important;
+    width: 3px !important;
+    background-color: #ff5500 !important;
+    border-radius: 1px;
+    animation: bounce 0.5s ease-in-out infinite alternate;
 }
 
-/* Alturas e velocidades diferentes para parecer real */
 .now-playing-equalizer span:nth-child(1) { height: 100%; animation-duration: 0.4s; }
 .now-playing-equalizer span:nth-child(2) { height: 60%; animation-duration: 0.2s; }
 .now-playing-equalizer span:nth-child(3) { height: 80%; animation-duration: 0.3s; }
 
 @keyframes bounce {
-  from { height: 20%; }
-  to { height: 100%; }
+    from { height: 3px; }
+    to { height: 100%; }
 }
 
-/* Estilo para a faixa ativa na playlist */
-.active-track {
-  background: rgba(255, 85, 0, 0.1); /* Um fundo leve */
-  color: #ff5500 !important;
-  font-weight: bold;
+/* --- PLAYER ESCONDIDO --- */
+.hidden-player {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
-
-
