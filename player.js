@@ -1,14 +1,13 @@
-// 1. GARANTA QUE O ID NO HTML SEJA 'sc-widget'
 const widgetIframe = document.getElementById('sc-widget');
 const widget = SC.Widget(widgetIframe);
 
 let playlist = [];
 let currentTrackIndex = 0;
 
-// Configuração inicial
+// Inicialização
 widget.bind(SC.Widget.Events.READY, () => {
     console.log("SoundCloud pronto");
-    document.getElementById("status").innerText = "Pronto para carregar!";
+    document.getElementById("status").innerText = "Insira um link e clique em Carregar";
     widget.setVolume(100);
 });
 
@@ -17,21 +16,22 @@ widget.bind(SC.Widget.Events.FINISH, () => {
     nextTrack();
 });
 
-// Adicionar música
 async function handleAddContent() {
     const urlInput = document.getElementById("videoUrl");
-    const url = urlInput.value;
+    const url = urlInput.value.trim();
     
     if (url.includes("soundcloud.com")) {
         // Adiciona à fila com título temporário
-        const newTrack = { url: url, title: "Carregando..." };
+        const newTrack = { url: url, title: "Carregando informações..." };
         playlist.push(newTrack);
         updatePlaylistUI();
         
-        // Se for a única, toca agora
+        // Se for a primeira, toca agora
         if (playlist.length === 1) {
             playTrack(0);
         }
+    } else {
+        alert("Cole um link válido do SoundCloud.");
     }
     urlInput.value = "";
 }
@@ -39,42 +39,42 @@ async function handleAddContent() {
 function playTrack(index) {
     if (index >= 0 && index < playlist.length) {
         currentTrackIndex = index;
+        const statusDisplay = document.getElementById("status");
         
-        // O segredo do iPhone: load precisa de opções explícitas
+        statusDisplay.innerText = "Carregando áudio...";
+        
         widget.load(playlist[index].url, {
             auto_play: true,
-            hide_related: true,
-            show_comments: false,
             callback: () => {
-                // Força o play e busca as informações da música
-                widget.play(); 
+                widget.play();
                 widget.setVolume(100);
                 
-                setTimeout(() => {
+                // Tenta pegar o nome da música (o SoundCloud pode demorar uns segundos)
+                let attempts = 0;
+                const checkSound = setInterval(() => {
                     widget.getCurrentSound((sound) => {
-                        if (sound) {
+                        if (sound && sound.title) {
                             playlist[index].title = sound.title;
-                            document.getElementById("status").innerText = sound.title;
+                            statusDisplay.innerText = sound.title;
                             updatePlaylistUI();
                             updateMediaMetadata(sound);
+                            clearInterval(checkSound);
                         }
                     });
-                }, 1000); // Pequeno atraso para a API responder
+                    attempts++;
+                    if (attempts > 10) clearInterval(checkSound); // Para após 10 tentativas
+                }, 1000);
             }
         });
     }
 }
 
 function nextTrack() {
-    if (currentTrackIndex + 1 < playlist.length) {
-        playTrack(currentTrackIndex + 1);
-    }
+    if (currentTrackIndex + 1 < playlist.length) playTrack(currentTrackIndex + 1);
 }
 
 function prevTrack() {
-    if (currentTrackIndex - 1 >= 0) {
-        playTrack(currentTrackIndex - 1);
-    }
+    if (currentTrackIndex - 1 >= 0) playTrack(currentTrackIndex - 1);
 }
 
 function updateMediaMetadata(sound) {
@@ -97,25 +97,24 @@ function updatePlaylistUI() {
     listElement.innerHTML = "";
     playlist.forEach((item, index) => {
         const li = document.createElement("li");
-        // Criamos o texto e o botão de remover (opcional)
         li.innerHTML = `<span><strong>${index + 1}.</strong> ${item.title}</span>`;
         li.style.cursor = "pointer";
-        
-        if (index === currentTrackIndex) {
-            li.style.color = "#ff5500"; // Cor do SoundCloud
-            li.style.fontWeight = "bold";
-        }
+        li.style.padding = "10px";
+        li.style.marginBottom = "5px";
+        li.style.borderRadius = "5px";
+        li.style.background = index === currentTrackIndex ? "#2a2a2a" : "transparent";
+        li.style.color = index === currentTrackIndex ? "#1DB954" : "white";
         
         li.onclick = () => playTrack(index);
         listElement.appendChild(li);
     });
 }
 
-// Botões
+// Eventos de clique
 document.getElementById("btnLoad").addEventListener("click", handleAddContent);
 document.getElementById("btnPlay").addEventListener("click", () => {
     widget.play();
-    document.getElementById("status").innerText = playlist[currentTrackIndex]?.title || "Tocando...";
+    widget.getCurrentSound((s) => { if(s) document.getElementById("status").innerText = s.title; });
 });
 document.getElementById("btnPause").addEventListener("click", () => widget.pause());
 document.getElementById("btnNext").addEventListener("click", nextTrack);
