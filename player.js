@@ -27,25 +27,52 @@ widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
 
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
-  const url = urlInput.value.trim();
+  let url = urlInput.value.trim();
+  const statusElement = document.getElementById("status");
 
   if (url.includes("soundcloud.com")) {
-    document.getElementById("status").innerText = "Sintonizando...";
+    statusElement.innerText = "Normalizando link...";
+
+    // 1. CONVERSÃO DE LINK MOBILE PARA DESKTOP
+    // Remove o "m." (mobile) e substitui por "www."
+    url = url.replace("m.soundcloud.com", "soundcloud.com");
+    
+    // Se for link curto (on.soundcloud.com), ele precisa ser expandido (opcional, mas o replace resolve o principal)
+    // O Widget costuma aceitar o soundcloud.com puro melhor que o m.soundcloud.com
+
+    statusElement.innerText = "Sintonizando...";
+    
     widget.load(url, {
       auto_play: true,
+      show_artwork: true, // Garante que os metadados venham junto
       callback: () => {
-        widget.getSounds((sounds) => {
-          if (sounds) {
-            playlist = sounds.map(s => ({ title: s.title }));
-            updatePlaylistUI();
-            widget.play();
-          }
-        });
+        // Pequeno delay para o widget processar a mudança de domínio
+        setTimeout(() => {
+          widget.getSounds((sounds) => {
+            if (sounds && sounds.length > 0) {
+              playlist = sounds.map(s => ({ title: s.title }));
+              updatePlaylistUI();
+              statusElement.innerText = "Pronto!";
+              widget.play();
+            } else {
+              // Fallback para música única se getSounds falhar
+              widget.getCurrentSound((s) => {
+                if(s) {
+                   playlist = [{ title: s.title }];
+                   updatePlaylistUI();
+                } else {
+                   statusElement.innerText = "Erro: Link móvel incompatível.";
+                }
+              });
+            }
+          });
+        }, 1000);
       }
     });
   }
   urlInput.value = "";
 }
+
 
 // NAVEGAÇÃO: Agora o comando é disparado com prioridade máxima
 function nextTrack() {
