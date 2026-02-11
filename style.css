@@ -210,9 +210,9 @@ li:hover {
     position: fixed;
     top: 10px;
     left: 10px;
-    width: 50px; /* Tamanho pequeno, mas existente */
+    width: 60px; /* Tamanho pequeno, mas existente */
     height: 50px;
-    opacity: 0.1; /* Quase invisível, mas não zero */
+    opacity: 0.15; /* Quase invisível, mas não zero */
     z-index: 9999;
     pointer-events: none;
 }

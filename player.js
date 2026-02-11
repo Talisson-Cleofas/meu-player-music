@@ -20,42 +20,26 @@ function onYouTubeIframeAPIReady() {
     playerVars: {
       playsinline: 1,
       autoplay: 0,
-      controls: 1, // Ativado para o iOS reconhecer como player de mídia
-      mute: 0, // Força o desligamento do mudo nativo
+      controls: 1,
+      disablekb: 1,
+      fs: 1,
+      origin: window.location.origin,
+      widget_referrer: window.location.origin,
+      host: "https://www.youtube-nocookie.com",
     },
     events: {
+      onStateChange: onPlayerStateChange,
       onReady: (event) => {
-        // Garante que o volume interno do YouTube esteja no máximo
+        // Garante que o player comece com volume e sem mudo
         event.target.unMute();
         event.target.setVolume(100);
+        console.log("Player pronto");
       },
-      onStateChange: onPlayerStateChange,
     },
   });
 }
 
-// Modifique o listener do seu botão de Play para isso:
-document.getElementById("btnPlay").addEventListener("click", () => {
-  // 1. Acorda o sistema de áudio do iOS com o arquivo local
-  silentAudio.play().catch(() => {});
-
-  // 2. Garante que o player do YouTube não esteja mudo
-  player.unMute();
-  player.setVolume(100);
-
-  // 3. Inicia o vídeo
-  player.playVideo();
-});
-
-// Chame esta função explicitamente no clique do botão Play
-function forceAudioPlay() {
-  silentAudio.play().catch(() => {});
-  player.unMute();
-  player.setVolume(100);
-  player.playVideo();
-}
-
-// TÉCNICA PARA IOS: Mantém o canal de áudio aberto
+// TÉCNICA PARA IOS: Mantém o canal de áudio aberto ao bloquear
 document.addEventListener("visibilitychange", function () {
   if (
     document.hidden &&
@@ -91,6 +75,7 @@ function updateMediaMetadata() {
 
     navigator.mediaSession.setActionHandler("play", () => {
       player.playVideo();
+      player.unMute();
       silentAudio.play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
@@ -142,16 +127,17 @@ function addToPlaylistArray(id, title) {
 function playTrack(index) {
   if (index >= 0 && index < playlist.length) {
     currentTrackIndex = index;
-    // iOS Hack: Tocar o áudio silencioso ANTES do vídeo prepara o sistema de som
+    // iOS HACK: O clique do usuário deve ativar o áudio e desmudar o vídeo
     silentAudio
       .play()
       .then(() => {
         player.loadVideoById(playlist[currentTrackIndex].id);
-        player.setVolume(100);
         player.unMute();
+        player.setVolume(100);
       })
       .catch(() => {
         player.loadVideoById(playlist[currentTrackIndex].id);
+        player.unMute();
       });
     updatePlaylistUI();
   }
@@ -181,6 +167,10 @@ function onPlayerStateChange(event) {
   if (event.data === YT.PlayerState.ENDED) nextTrack();
 
   if (event.data === YT.PlayerState.PLAYING) {
+    // Força o áudio novamente caso o iOS tenha silenciado na troca de faixa
+    event.target.unMute();
+    event.target.setVolume(100);
+
     status.innerText = videoData.title;
     requestWakeLock();
     updateMediaMetadata();
@@ -244,8 +234,11 @@ function extractPlaylistID(url) {
   return match ? match[1] : null;
 }
 
+// LISTENERS COM DESMUDAR FORÇADO
 document.getElementById("btnLoad").addEventListener("click", handleAddContent);
 document.getElementById("btnPlay").addEventListener("click", () => {
+  player.unMute();
+  player.setVolume(100);
   player.playVideo();
   silentAudio.play().catch(() => {});
 });
