@@ -9,14 +9,14 @@ audioFix.loop = true;
 let playlist = [];
 let isProcessing = false;
 
-// 1. Sincronização de PLAY
+// 1. Sincronização de PLAY (Reforçada para travar os controles)
 widget.bind(SC.Widget.Events.PLAY, () => {
-  playIcon.className = "fas fa-pause"; // Troca ícone para Pause
-  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  playIcon.className = "fas fa-pause";
   
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
+      // Atualiza a MediaSession TODA VEZ que o som muda
       applyMediaSession(sound);
       updateActiveTrackVisual(sound.title);
       audioFix.play().catch(() => {});
@@ -24,49 +24,38 @@ widget.bind(SC.Widget.Events.PLAY, () => {
   });
 });
 
-// 2. Sincronização de PAUSE
 widget.bind(SC.Widget.Events.PAUSE, () => {
-  playIcon.className = "fas fa-play"; // Troca ícone para Play
+  playIcon.className = "fas fa-play";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   audioFix.pause();
 });
 
-// 3. Lógica do Botão Único
 function togglePlayback() {
   if (isProcessing) return;
   isProcessing = true;
-
   widget.isPaused((paused) => {
     if (paused) {
       widget.play();
       audioFix.play().catch(() => {});
     } else {
       widget.pause();
-      setTimeout(() => {
-        widget.isPaused((stillPlaying) => {
-          if (!stillPlaying) widget.pause();
-        });
-      }, 50);
     }
     setTimeout(() => { isProcessing = false; }, 300);
   });
 }
 
-// 4. Normalização e Carga
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   let url = urlInput.value.trim();
-
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
     url = url.replace("m.soundcloud.com", "soundcloud.com").split('?')[0];
-
     widget.load(url, {
       auto_play: true,
       callback: () => {
         setTimeout(() => {
           widget.getSounds((sounds) => {
-            if (sounds && sounds.length > 0) {
+            if (sounds) {
               playlist = sounds.map(s => ({ title: s.title }));
               updatePlaylistUI();
               widget.play();
@@ -89,6 +78,7 @@ function prevTrack() {
   widget.prev();
 }
 
+// CORREÇÃO AQUI: Forçamos o estado "playing" e limpamos os handlers de seek
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -101,10 +91,19 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
+    // Força o estado para o navegador habilitar os botões de faixa
+    navigator.mediaSession.playbackState = "playing";
+
+    // VINCULAÇÃO DOS BOTÕES
     navigator.mediaSession.setActionHandler("play", () => widget.play());
     navigator.mediaSession.setActionHandler("pause", () => widget.pause());
     navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
     navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
+
+    // O SEGREDO: Setar como null explicitamente os comandos de "pular tempo"
+    navigator.mediaSession.setActionHandler('seekbackward', null);
+    navigator.mediaSession.setActionHandler('seekforward', null);
+    try { navigator.mediaSession.setActionHandler('seekto', null); } catch (e) {}
   }
 }
 
@@ -120,8 +119,7 @@ function updatePlaylistUI() {
 }
 
 function updateActiveTrackVisual(currentTitle) {
-  const items = document.querySelectorAll("#playlistView li");
-  items.forEach(li => {
+  document.querySelectorAll("#playlistView li").forEach(li => {
     li.classList.remove("active-track");
     if (li.querySelector(".track-name").innerText === currentTitle) {
       li.classList.add("active-track");
