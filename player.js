@@ -1,69 +1,73 @@
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
-
-// CRUCIAL: Criamos um áudio silencioso para manter o sistema acordado
-const audioFix = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3');
-audioFix.loop = true;
+const pulseAudio = new Audio('https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3');
+pulseAudio.loop = true;
 
 let playlist = [];
 
-widget.bind(SC.Widget.Events.READY, () => {
-  document.getElementById("status").innerText = "Pronto!";
-});
-
+// Sincronização ao dar Play
 widget.bind(SC.Widget.Events.PLAY, () => {
+  pulseAudio.play().catch(() => {}); 
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
       applyMediaSession(sound);
       updateActiveTrackVisual(sound.title);
-      // Quando o SoundCloud toca, iniciamos o áudio silencioso para "segurar" o canal
-      audioFix.play().catch(() => {});
     }
   });
 });
 
-widget.bind(SC.Widget.Events.FINISH, () => nextTrack());
+widget.bind(SC.Widget.Events.FINISH, () => widget.next());
 
-async function handleAddContent() {
+// FUNÇÃO REFORMULADA: Trata erros e diferentes tipos de links
+function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
+  const statusElement = document.getElementById("status");
 
   if (url.includes("soundcloud.com")) {
-    document.getElementById("status").innerText = "Sintonizando...";
+    statusElement.innerText = "Sintonizando...";
+    
+    // Resetamos a playlist visual para evitar confusão se o link falhar
+    playlist = []; 
+
     widget.load(url, {
       auto_play: true,
+      show_artwork: true,
       callback: () => {
-        widget.getSounds((sounds) => {
-          if (sounds) {
-            playlist = sounds.map(s => ({ title: s.title }));
-            updatePlaylistUI();
-            widget.play();
-          }
-        });
+        // Tentativas repetidas para capturar os dados (ajuda em conexões lentas)
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+          widget.getSounds((sounds) => {
+            attempts++;
+            
+            if (sounds && sounds.length > 0) {
+              playlist = sounds.map(s => ({ title: s.title }));
+              updatePlaylistUI();
+              statusElement.innerText = "Pronto!";
+              clearInterval(checkInterval);
+            } else if (attempts > 5) {
+              // Se após 5 tentativas não ler o álbum, tenta ler como música única
+              widget.getCurrentSound((s) => {
+                if (s) {
+                  playlist = [{ title: s.title }];
+                  updatePlaylistUI();
+                  statusElement.innerText = "Música única carregada";
+                } else {
+                  statusElement.innerText = "Erro: Este link bloqueia reprodução externa.";
+                }
+              });
+              clearInterval(checkInterval);
+            }
+          });
+        }, 800);
       }
     });
   }
   urlInput.value = "";
 }
 
-// NAVEGAÇÃO: Agora o comando é disparado com prioridade máxima
-function nextTrack() {
-  // 1. Acorda o sistema
-  audioFix.play().catch(() => {});
-  // 2. Comanda o widget
-  widget.next();
-  // 3. Força a UI a se manter ativa
-  if ("mediaSession" in navigator) {
-    navigator.mediaSession.playbackState = "playing";
-  }
-}
-
-function prevTrack() {
-  audioFix.play().catch(() => {});
-  widget.prev();
-}
-
+// Media Session permanece igual, mas adicionei playbackState para o iOS
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -73,27 +77,21 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
-      album: "SoundCloud Player",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Mapeamos os botões DIRETAMENTE para as funções de navegação
-    navigator.mediaSession.setActionHandler("play", () => {
-        widget.play();
-        audioFix.play();
-    });
-    navigator.mediaSession.setActionHandler("pause", () => {
-        widget.pause();
-        audioFix.pause();
-    });
-    
-    // Vinculação direta para tela de bloqueio
-    navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
-    navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
+    navigator.mediaSession.playbackState = "playing";
 
-    // Remove botões de 10s
-    navigator.mediaSession.setActionHandler('seekbackward', null);
-    navigator.mediaSession.setActionHandler('seekforward', null);
+    const handlers = [
+      ['play', () => widget.play()],
+      ['pause', () => widget.pause()],
+      ['nexttrack', () => widget.next()],
+      ['previoustrack', () => widget.prev()]
+    ];
+
+    handlers.forEach(([action, handler]) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch (e) {}
+    });
   }
 }
 
@@ -109,8 +107,7 @@ function updatePlaylistUI() {
 }
 
 function updateActiveTrackVisual(currentTitle) {
-  const items = document.querySelectorAll("#playlistView li");
-  items.forEach(li => {
+  document.querySelectorAll("#playlistView li").forEach(li => {
     li.classList.remove("active-track");
     if (li.querySelector(".track-name").innerText === currentTitle) {
       li.classList.add("active-track");
@@ -120,8 +117,8 @@ function updateActiveTrackVisual(currentTitle) {
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoad").onclick = handleAddContent;
-  document.getElementById("btnPlay").onclick = () => { widget.play(); audioFix.play(); };
-  document.getElementById("btnPause").onclick = () => { widget.pause(); audioFix.pause(); };
-  document.getElementById("btnNext").onclick = nextTrack;
-  document.getElementById("btnPrev").onclick = prevTrack;
+  document.getElementById("btnPlay").onclick = () => { widget.play(); pulseAudio.play(); };
+  document.getElementById("btnPause").onclick = () => { widget.pause(); pulseAudio.pause(); };
+  document.getElementById("btnNext").onclick = () => widget.next();
+  document.getElementById("btnPrev").onclick = () => widget.prev();
 });
