@@ -3,14 +3,12 @@ const widget = SC.Widget(widgetIframe);
 
 let playlist = [];
 
-// 1. Monitora quando a música muda (Internamente no SoundCloud)
+// 1. Monitora quando a música muda
 widget.bind(SC.Widget.Events.PLAY, () => {
   widget.getCurrentSound((sound) => {
     if (sound) {
       document.getElementById("status").innerText = sound.title;
-      // Sincroniza a capa e os botões da tela de bloqueio
       applyMediaSession(sound);
-      // Sincroniza a fila visual
       updateActiveTrackVisual(sound.title);
     }
   });
@@ -18,10 +16,10 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 // 2. Quando o álbum acabar ou uma música terminar
 widget.bind(SC.Widget.Events.FINISH, () => {
-  widget.next(); // O comando .next() não exige novo Play no iPhone
+  widget.next();
 });
 
-// 3. Adiciona conteúdo (Carrega o álbum INTEIRO de uma vez)
+// 3. Adiciona conteúdo (Álbum Inteiro)
 async function handleAddContent() {
   const urlInput = document.getElementById("videoUrl");
   const url = urlInput.value.trim();
@@ -29,7 +27,6 @@ async function handleAddContent() {
   if (url.includes("soundcloud.com")) {
     document.getElementById("status").innerText = "Sintonizando...";
     
-    // CARREGAMENTO ÚNICO: Isso é o que impede de pausar
     widget.load(url, {
       auto_play: true,
       callback: () => {
@@ -46,7 +43,7 @@ async function handleAddContent() {
   urlInput.value = "";
 }
 
-// 4. Navegação (Comandos nativos que não bloqueiam no iOS)
+// 4. Navegação
 function nextTrack() {
   widget.next();
 }
@@ -55,7 +52,7 @@ function prevTrack() {
   widget.prev();
 }
 
-// 5. Atualiza a Media Session (Tela de Bloqueio)
+// 5. ATUALIZADO: Media Session (Forçando Setas e Corrigindo 10s)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url 
@@ -65,14 +62,29 @@ function applyMediaSession(sound) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: sound.user.username,
+      album: "Minha Playlist", // Definir um álbum ajuda a ativar as setas
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Vincula os botões físicos aos comandos nativos
-    navigator.mediaSession.setActionHandler("play", () => widget.play());
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
-    navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
+    // Mapeamento de ações
+    const actionHandlers = [
+      ["play", () => widget.play()],
+      ["pause", () => widget.pause()],
+      ["nexttrack", () => nextTrack()],
+      ["previoustrack", () => prevTrack()],
+      // FORÇA O SUMIÇO DOS 10s: Ao setar como null, o navegador esconde os botões de tempo
+      ["seekbackward", null],
+      ["seekforward", null],
+      ["seekto", null]
+    ];
+
+    actionHandlers.forEach(([action, handler]) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (e) {
+        console.log(`Ação ${action} não suportada.`);
+      }
+    });
   }
 }
 
@@ -86,7 +98,6 @@ function updatePlaylistUI() {
       <span class="track-num">${(index + 1).toString().padStart(2, '0')}</span>
       <span class="track-name">${item.title}</span>
     `;
-    // Skip também é permitido no iOS sem pausar
     li.onclick = () => widget.skip(index);
     listElement.appendChild(li);
   });
@@ -96,7 +107,8 @@ function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach(li => {
     li.classList.remove("active-track");
-    if (li.querySelector(".track-name").innerText === currentTitle) {
+    const trackName = li.querySelector(".track-name").innerText;
+    if (trackName === currentTitle) {
       li.classList.add("active-track");
     }
   });
