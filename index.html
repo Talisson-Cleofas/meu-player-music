@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Music Player (SoundCloud)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* Mantemos o player tecnicamente visível para o Safari não suspender o áudio */
       .hidden-player {
         position: fixed;
         top: -10px;
@@ -24,20 +24,17 @@
       <h2>SoundCloud Player</h2>
 
       <div class="input-group">
-        <input
-          type="text"
-          id="videoUrl"
-          placeholder="Cole o link do SoundCloud"
-        />
+        <input type="text" id="videoUrl" placeholder="Cole o link do SoundCloud" />
         <button id="btnLoad">Carregar</button>
       </div>
 
-   <div class="controls">
-  <button id="btnPrev" class="btn-secondary">⏮</button>
-  <button id="btnTogglePlay" class="btn-main">▶</button> 
-  <button id="btnNext" class="btn-secondary">⏭</button>
-</div>
-
+      <div class="controls">
+        <button id="btnPrev" class="btn-secondary"><i class="fas fa-backward"></i></button>
+        <button id="btnTogglePlay" class="btn-main">
+          <i id="playIcon" class="fas fa-play"></i>
+        </button> 
+        <button id="btnNext" class="btn-secondary"><i class="fas fa-forward"></i></button>
+      </div>
 
       <div class="playlist-container">
         <h4>Fila de Reprodução</h4>
