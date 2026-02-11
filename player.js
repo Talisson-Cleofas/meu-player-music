@@ -15,23 +15,37 @@ document.head.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
-    height: "200",
-    width: "200",
+    height: "100%",
+    width: "100%",
     playerVars: {
       playsinline: 1,
       autoplay: 0,
-      controls: 1,
-      mute: 0,
-      enablejsapi: 1,
+      controls: 1, // Ativado para o iOS reconhecer como player de mídia
+      mute: 0, // Força o desligamento do mudo nativo
     },
     events: {
       onReady: (event) => {
+        // Garante que o volume interno do YouTube esteja no máximo
+        event.target.unMute();
         event.target.setVolume(100);
       },
       onStateChange: onPlayerStateChange,
     },
   });
 }
+
+// Modifique o listener do seu botão de Play para isso:
+document.getElementById("btnPlay").addEventListener("click", () => {
+  // 1. Acorda o sistema de áudio do iOS com o arquivo local
+  silentAudio.play().catch(() => {});
+
+  // 2. Garante que o player do YouTube não esteja mudo
+  player.unMute();
+  player.setVolume(100);
+
+  // 3. Inicia o vídeo
+  player.playVideo();
+});
 
 // Chame esta função explicitamente no clique do botão Play
 function forceAudioPlay() {
