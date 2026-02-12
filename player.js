@@ -4,45 +4,73 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Elementos da Barra de Progresso
 const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// Audio fix: Mantém o canal de áudio aberto para background e autoplay
-const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
+// Audio fix: Aumentamos um pouco o volume do silêncio (0.01) para o Android não ignorá-lo
+const audioFix = new Audio(
+  "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
+);
 audioFix.loop = true;
+audioFix.volume = 0.01;
 
 let playlist = [];
 let isProcessing = false;
 let isRepeating = true;
-let isDragging = false; 
+let isDragging = false;
 
 // 2. FUNÇÃO SPLASH
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (splash) {
     splash.style.opacity = "0";
-    setTimeout(() => { splash.style.display = "none"; }, 600);
+    setTimeout(() => {
+      splash.style.display = "none";
+    }, 600);
   }
 }
 setTimeout(hideSplash, 2500);
 
 // --- BIBLIOTECA DE ÁLBUNS ---
 const meusAlbuns = [
-  { nome: "Efeito Atomiko", url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no" },
-  { nome: "Camp Fire", url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo" },
+  {
+    nome: "Efeito Atomiko",
+    url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no",
+  },
+  {
+    nome: "Camp Fire",
+    url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo",
+  },
   { nome: "Rahamim", url: "https://soundcloud.com/colodedeus/sets/rahamim-4" },
-  { nome: "AD10", url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1" },
+  {
+    nome: "AD10",
+    url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1",
+  },
   { nome: "Secreto", url: "https://soundcloud.com/colodedeus/sets/secreto-33" },
   { nome: "Deserto", url: "https://soundcloud.com/colodedeus/sets/deserto-5" },
-  { nome: "Intimidade", url: "https://soundcloud.com/colodedeus/sets/intimidade-28" },
+  {
+    nome: "Intimidade",
+    url: "https://soundcloud.com/colodedeus/sets/intimidade-28",
+  },
   { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
   { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
-  { nome: "Cordeiro 1", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao" },
-  { nome: "Cordeiro 2", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao" },
-  { nome: "Cordeiro 3", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4" },
-  { nome: "Casa de Maria", url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria" },
+  {
+    nome: "Cordeiro 1",
+    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao",
+  },
+  {
+    nome: "Cordeiro 2",
+    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao",
+  },
+  {
+    nome: "Cordeiro 3",
+    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4",
+  },
+  {
+    nome: "Casa de Maria",
+    url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria",
+  },
 ];
 
 // --- LOGICA DO PLAYER ---
@@ -54,8 +82,10 @@ if (widget) {
         if (duration > 0) {
           const percentage = (currentPos / duration) * 100;
           progressSlider.value = percentage;
-          if (currentTimeDisplay) currentTimeDisplay.innerText = formatTime(currentPos);
-          if (totalDurationDisplay) totalDurationDisplay.innerText = formatTime(duration);
+          if (currentTimeDisplay)
+            currentTimeDisplay.innerText = formatTime(currentPos);
+          if (totalDurationDisplay)
+            totalDurationDisplay.innerText = formatTime(duration);
         }
       });
     }
@@ -63,15 +93,18 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    if ("mediaSession" in navigator)
+      navigator.mediaSession.playbackState = "playing";
 
     widget.getCurrentSound((sound) => {
       if (sound) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        if (totalDurationDisplay) totalDurationDisplay.innerText = formatTime(sound.duration);
-        
+        if (totalDurationDisplay)
+          totalDurationDisplay.innerText = formatTime(sound.duration);
+
+        // Sempre dá play no audioFix junto com a música
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -80,7 +113,9 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+    if ("mediaSession" in navigator)
+      navigator.mediaSession.playbackState = "paused";
+    // NÃO pausamos o audioFix aqui para manter o canal aberto no Android
   });
 
   widget.bind(SC.Widget.Events.FINISH, () => {
@@ -100,12 +135,16 @@ function formatTime(ms) {
 }
 
 if (progressSlider) {
-  progressSlider.addEventListener("input", () => { isDragging = true; });
+  progressSlider.addEventListener("input", () => {
+    isDragging = true;
+  });
   progressSlider.addEventListener("change", () => {
     widget.getDuration((duration) => {
       const seekToMs = (progressSlider.value / 100) * duration;
       widget.seekTo(seekToMs);
-      setTimeout(() => { isDragging = false; }, 600);
+      setTimeout(() => {
+        isDragging = false;
+      }, 600);
     });
   });
 }
@@ -128,7 +167,7 @@ function carregarConteudo(urlPersonalizada) {
   audioFix.play().catch(() => {});
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
-  
+
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
     widget.load(url, {
@@ -144,42 +183,55 @@ function carregarConteudo(urlPersonalizada) {
             }
           });
         }, 800);
-      }
+      },
     });
   }
 }
 
-// CORREÇÃO REFORÇADA PARA TELA DE BLOQUEIO
+// CORREÇÃO DEFINITIVA PARA PLAY/PAUSE ANDROID
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
-    
+    const artwork = sound.artwork_url
+      ? sound.artwork_url.replace("-large", "-t500x500")
+      : "";
+
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
       album: "CloudCast",
-      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
+      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    const kickAudio = () => {
-      audioFix.currentTime = 0;
-      audioFix.play().catch(() => {});
-    };
+    // No Android, precisamos garantir que o audioFix esteja rodando ANTES do widget.play
+    navigator.mediaSession.setActionHandler("play", async () => {
+      try {
+        await audioFix.play();
+        widget.play();
+        navigator.mediaSession.playbackState = "playing";
+      } catch (err) {
+        widget.play(); // Fallback
+      }
+    });
 
-    // Botões Principais
-    navigator.mediaSession.setActionHandler('play', () => { kickAudio(); widget.play(); });
-    navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
-    
-    // Botões de Pular/Voltar (Garante que apareçam no lugar do Seek)
-    navigator.mediaSession.setActionHandler('previoustrack', () => { kickAudio(); widget.prev(); });
-    navigator.mediaSession.setActionHandler('nexttrack', () => { kickAudio(); widget.next(); });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      widget.pause();
+      navigator.mediaSession.playbackState = "paused";
+      // Mantemos o audioFix rodando (silencioso) para não perder o foco
+    });
 
-    // Desativa os botões de pular 10s (Seek) para forçar as setas de faixa
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      audioFix.play();
+      widget.prev();
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      audioFix.play();
+      widget.next();
+    });
+
     try {
-      navigator.mediaSession.setActionHandler('seekbackward', null);
-      navigator.mediaSession.setActionHandler('seekforward', null);
-      // Permite arrastar a barra de progresso na notificação do sistema
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
+      navigator.mediaSession.setActionHandler("seekbackward", null);
+      navigator.mediaSession.setActionHandler("seekforward", null);
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
         if (details.seekTime) widget.seekTo(details.seekTime * 1000);
       });
     } catch (e) {}
@@ -193,7 +245,10 @@ function updatePlaylistUI() {
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, "0")}</span><span class="track-name">${item.title}</span>`;
-    li.onclick = () => { audioFix.play().catch(() => {}); widget.skip(index); };
+    li.onclick = () => {
+      audioFix.play().catch(() => {});
+      widget.skip(index);
+    };
     listElement.appendChild(li);
   });
 }
@@ -231,6 +286,14 @@ function initAlbuns() {
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
-  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
+  if (document.getElementById("btnNext"))
+    document.getElementById("btnNext").onclick = () => {
+      audioFix.play().catch(() => {});
+      widget.next();
+    };
+  if (document.getElementById("btnPrev"))
+    document.getElementById("btnPrev").onclick = () => {
+      audioFix.play().catch(() => {});
+      widget.prev();
+    };
 });
