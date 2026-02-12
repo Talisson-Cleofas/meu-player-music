@@ -4,7 +4,8 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Audio fix para manter o player vivo em background
+// Audio fix: O SEGREDO está em nunca pausar este áudio. 
+// Ele mantém o "túnel" de áudio aberto com o sistema operacional.
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -71,7 +72,7 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        // Toca o audioFix para garantir o background no iOS
+        // Garante que o audioFix está rodando sempre que a música toca
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -83,12 +84,15 @@ if (widget) {
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
+    // IMPORTANTE: NÃO pausamos o audioFix aqui. 
+    // Se pausarmos ele, a tela de bloqueio "morre" no iOS.
   });
 }
 
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
+  
   widget.isPaused((paused) => {
     if (paused) {
       audioFix.play().catch(() => {});
@@ -107,39 +111,26 @@ function carregarConteudo(urlPersonalizada) {
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
     
-    // NO iOS: Ativamos o áudio fix imediatamente
+    // "Aquece" o canal de áudio
     audioFix.play().catch(() => {});
 
-    // Carregamos com auto_play: true e SEM callback complexo inicial
     widget.load(url, {
       auto_play: true,
       show_artwork: false,
       callback: () => {
-        // Forçamos o play imediato para evitar o "pause" de segurança do Safari
-        widget.play();
-        
-        // Carrega a playlist em paralelo
-        widget.getSounds((sounds) => {
-          if (sounds) {
-            playlist = sounds.map((s) => ({ title: s.title }));
-            updatePlaylistUI();
-          }
-        });
+        // Pequeno delay para o iOS processar a troca de fonte
+        setTimeout(() => {
+          widget.play();
+          widget.getSounds((sounds) => {
+            if (sounds) {
+              playlist = sounds.map((s) => ({ title: s.title }));
+              updatePlaylistUI();
+            }
+          });
+        }, 500);
       }
     });
   }
-}
-
-function initAlbuns() {
-  const container = document.getElementById("albumButtons");
-  if (!container) return;
-  meusAlbuns.forEach((album) => {
-    const btn = document.createElement("button");
-    btn.className = "btn-album";
-    btn.innerText = album.nome;
-    btn.onclick = () => carregarConteudo(album.url);
-    container.appendChild(btn);
-  });
 }
 
 function applyMediaSession(sound) {
@@ -152,13 +143,28 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
+    // Handlers para os botões da tela de bloqueio
     navigator.mediaSession.setActionHandler("play", () => {
+        // Quando o usuário clica em play na tela de bloqueio, 
+        // damos um "kick" no audioFix antes do widget.
         audioFix.play().catch(() => {});
         widget.play();
     });
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
-    navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
+    
+    navigator.mediaSession.setActionHandler("pause", () => {
+        widget.pause();
+        // Não pausamos o audioFix para não perder o foco do sistema
+    });
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+        audioFix.play().catch(() => {});
+        widget.prev();
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+        audioFix.play().catch(() => {});
+        widget.next();
+    });
   }
 }
 
@@ -196,10 +202,21 @@ function updateActiveTrackVisual(currentTitle) {
   });
 }
 
+function initAlbuns() {
+  const container = document.getElementById("albumButtons");
+  if (!container) return;
+  meusAlbuns.forEach((album) => {
+    const btn = document.createElement("button");
+    btn.className = "btn-album";
+    btn.innerText = album.nome;
+    btn.onclick = () => carregarConteudo(album.url);
+    container.appendChild(btn);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnLoad")) document.getElementById("btnLoad").onclick = () => carregarConteudo();
   if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => widget.next();
   if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => widget.prev();
 });
