@@ -8,12 +8,12 @@ const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// Audio fix: Aumentamos um pouco o volume do silêncio (0.01) para o Android não ignorá-lo
+// Audio fix: Aumentamos para 0.02 para garantir que o Android mantenha o processo de áudio "vivo"
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
 audioFix.loop = true;
-audioFix.volume = 0.01;
+audioFix.volume = 0.02;
 
 let playlist = [];
 let isProcessing = false;
@@ -86,6 +86,9 @@ if (widget) {
             currentTimeDisplay.innerText = formatTime(currentPos);
           if (totalDurationDisplay)
             totalDurationDisplay.innerText = formatTime(duration);
+
+          // SINCRONIZA A BARRA NA TELA DE BLOQUEIO (ANDROID/iOS)
+          updatePositionState(currentPos, duration);
         }
       });
     }
@@ -101,10 +104,7 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        if (totalDurationDisplay)
-          totalDurationDisplay.innerText = formatTime(sound.duration);
 
-        // Sempre dá play no audioFix junto com a música
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -115,7 +115,6 @@ if (widget) {
     if (playIcon) playIcon.className = "fas fa-play";
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "paused";
-    // NÃO pausamos o audioFix aqui para manter o canal aberto no Android
   });
 
   widget.bind(SC.Widget.Events.FINISH, () => {
@@ -124,6 +123,17 @@ if (widget) {
       setTimeout(() => widget.play(), 500);
     }
   });
+}
+
+// ATUALIZA O ESTADO DA POSIÇÃO NO SISTEMA OPERACIONAL
+function updatePositionState(currentMs, totalMs) {
+  if ("setPositionState" in navigator.mediaSession) {
+    navigator.mediaSession.setPositionState({
+      duration: totalMs / 1000,
+      playbackRate: 1.0,
+      position: currentMs / 1000,
+    });
+  }
 }
 
 function formatTime(ms) {
@@ -188,7 +198,7 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
-// CORREÇÃO DEFINITIVA PARA PLAY/PAUSE ANDROID
+// MEDIA SESSION REFORÇADA PARA ANDROID (PLAY/PAUSE + TEMPO)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url
@@ -202,29 +212,30 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // No Android, precisamos garantir que o audioFix esteja rodando ANTES do widget.play
-    navigator.mediaSession.setActionHandler("play", async () => {
-      try {
-        await audioFix.play();
-        widget.play();
-        navigator.mediaSession.playbackState = "playing";
-      } catch (err) {
-        widget.play(); // Fallback
-      }
+    // PLAY: Primeiro garante o áudio local (audioFix), depois o widget
+    navigator.mediaSession.setActionHandler("play", () => {
+      audioFix
+        .play()
+        .then(() => {
+          widget.play();
+          navigator.mediaSession.playbackState = "playing";
+        })
+        .catch(() => {
+          widget.play();
+        });
     });
 
     navigator.mediaSession.setActionHandler("pause", () => {
       widget.pause();
       navigator.mediaSession.playbackState = "paused";
-      // Mantemos o audioFix rodando (silencioso) para não perder o foco
     });
 
     navigator.mediaSession.setActionHandler("previoustrack", () => {
-      audioFix.play();
+      audioFix.play().catch(() => {});
       widget.prev();
     });
     navigator.mediaSession.setActionHandler("nexttrack", () => {
-      audioFix.play();
+      audioFix.play().catch(() => {});
       widget.next();
     });
 
@@ -232,7 +243,10 @@ function applyMediaSession(sound) {
       navigator.mediaSession.setActionHandler("seekbackward", null);
       navigator.mediaSession.setActionHandler("seekforward", null);
       navigator.mediaSession.setActionHandler("seekto", (details) => {
-        if (details.seekTime) widget.seekTo(details.seekTime * 1000);
+        if (details.seekTime) {
+          widget.seekTo(details.seekTime * 1000);
+          updatePositionState(details.seekTime * 1000, sound.duration);
+        }
       });
     } catch (e) {}
   }
