@@ -1,4 +1,4 @@
-// 1. Definições globais com proteção
+// 1. Definições globais e referências de elementos
 const widgetIframe = document.getElementById("sc-widget");
 const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
@@ -9,25 +9,21 @@ const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// Audio fix: Essencial para manter o serviço de áudio ativo no Android/iOS
-const audioFix = new Audio(
-  "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
-);
+// Audio fix: Mantém o canal de áudio aberto para background e autoplay
+const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
 audioFix.loop = true;
 
 let playlist = [];
 let isProcessing = false;
 let isRepeating = true;
-let isDragging = false; // Bloqueia atualização automática enquanto o usuário arrasta
+let isDragging = false; // Bloqueia atualização automática enquanto o usuário arrasta o slider
 
 // 2. FUNÇÃO SPLASH
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (splash) {
     splash.style.opacity = "0";
-    setTimeout(() => {
-      splash.style.display = "none";
-    }, 600);
+    setTimeout(() => { splash.style.display = "none"; }, 600);
   }
 }
 setTimeout(hideSplash, 2500);
@@ -51,52 +47,33 @@ const meusAlbuns = [
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
-  widget.bind(SC.Widget.Events.FINISH, () => {
-    if (isRepeating) {
-      widget.getCurrentSoundIndex((index) => {
-        widget.getSounds((sounds) => {
-          if (sounds && index === sounds.length - 1) {
-            widget.skip(0);
-          } else {
-            widget.next();
-          }
-          widget.play();
-        });
-      });
-    }
-  });
-
-  // ATUALIZAÇÃO DA BARRA EM TEMPO REAL
+  // Sincroniza a barra de progresso e o tempo atual
   widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
     if (!isDragging && progressSlider) {
       const currentPos = data.currentPosition;
-      const relativePos = data.relativePosition; // 0 a 1
       
-      progressSlider.value = relativePos * 100;
-      if (currentTimeDisplay) {
-        currentTimeDisplay.innerText = formatTime(currentPos);
-      }
+      widget.getDuration((duration) => {
+        if (duration > 0) {
+          const percentage = (currentPos / duration) * 100;
+          progressSlider.value = percentage;
+          if (currentTimeDisplay) currentTimeDisplay.innerText = formatTime(currentPos);
+          if (totalDurationDisplay) totalDurationDisplay.innerText = formatTime(duration);
+        }
+      });
     }
   });
 
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
-    
-    if ("mediaSession" in navigator) {
-        navigator.mediaSession.playbackState = "playing";
-    }
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 
     widget.getCurrentSound((sound) => {
       if (sound) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
+        if (totalDurationDisplay) totalDurationDisplay.innerText = formatTime(sound.duration);
         
-        // Atualiza a duração total assim que o play começa
-        if (totalDurationDisplay) {
-          totalDurationDisplay.innerText = formatTime(sound.duration);
-        }
-
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -105,15 +82,20 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
-    if ("mediaSession" in navigator) {
-        navigator.mediaSession.playbackState = "paused";
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  });
+
+  widget.bind(SC.Widget.Events.FINISH, () => {
+    if (isRepeating) {
+      widget.next();
+      setTimeout(() => widget.play(), 500);
     }
   });
 }
 
 // FORMATAÇÃO DE TEMPO (ms para mm:ss)
 function formatTime(ms) {
-  if (!ms) return "0:00";
+  if (!ms || isNaN(ms)) return "0:00";
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -123,14 +105,14 @@ function formatTime(ms) {
 // LOGICA DO SLIDER (SEEK)
 if (progressSlider) {
   progressSlider.addEventListener("input", () => {
-    isDragging = true;
+    isDragging = true; // Pausa a atualização automática enquanto o usuário arrasta
   });
 
   progressSlider.addEventListener("change", () => {
     widget.getDuration((duration) => {
       const seekToMs = (progressSlider.value / 100) * duration;
       widget.seekTo(seekToMs);
-      isDragging = false;
+      setTimeout(() => { isDragging = false; }, 600);
     });
   });
 }
@@ -138,7 +120,6 @@ if (progressSlider) {
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
-  
   widget.isPaused((paused) => {
     if (paused) {
       audioFix.play().catch(() => {});
@@ -178,7 +159,6 @@ function carregarConteudo(urlPersonalizada) {
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
-    
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
@@ -246,6 +226,6 @@ function initAlbuns() {
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => widget.next();
-  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => widget.prev();
+  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
+  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
 });
