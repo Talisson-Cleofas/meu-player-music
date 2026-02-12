@@ -1,6 +1,6 @@
 /* --- CONFIGURAÇÕES GERAIS --- */
 body {
-    background-color: #121212;
+    background-color: #0d0d0d; /* Um pouco mais escuro para destacar o neon */
     color: white;
     font-family: 'Segoe UI', Tahoma, sans-serif;
     display: flex; 
@@ -10,11 +10,21 @@ body {
     margin: 0;
 }
 
+/* Adicione a Logo no HTML acima do player-card ou dentro dele */
+.logo-container {
+    margin-bottom: 1.5rem;
+}
+
+.logo-container img {
+    width: 120px; /* Ajuste o tamanho conforme necessário */
+    filter: drop-shadow(0 0 10px rgba(110, 60, 255, 0.5));
+}
+
 .player-card {
-    background: #1e1e1e;
+    background: #1a1a1a;
     padding: 2rem;
     border-radius: 15px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    box-shadow: 0 10px 50px rgba(0,0,0,0.8), 0 0 20px rgba(85, 100, 255, 0.1);
     text-align: center;
     width: 380px; 
 }
@@ -31,14 +41,15 @@ input {
     padding: 12px;
     border-radius: 8px;
     border: 2px solid #333;
-    background: #1a1a1a;
+    background: #121212;
     color: white;
     outline: none;
     transition: border-color 0.3s;
 }
 
 input:focus {
-    border-color: #ff5500; 
+    /* Cor Azul/Roxo da Logo */
+    border-color: #6e3cff; 
 }
 
 #btnLoad {
@@ -56,10 +67,11 @@ input:focus {
 }
 
 #btnLoad:hover {
-    background: #ff5500;
+    /* Gradiente da Logo */
+    background: linear-gradient(135deg, #6e3cff, #4786ff);
     color: white;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 85, 0, 0.4);
+    box-shadow: 0 6px 20px rgba(110, 60, 255, 0.4);
 }
 
 /* --- CONTROLES DE MÍDIA --- */
@@ -81,13 +93,15 @@ input:focus {
 }
 
 .btn-main {
-    background: #ff5500;
+    /* Cor Principal da Nuvem */
+    background: linear-gradient(135deg, #6e3cff, #4786ff);
     border: none;
     width: 55px;
     height: 55px;
     color: white;
     border-radius: 50%;
     transition: all 0.2s ease;
+    box-shadow: 0 0 15px rgba(110, 60, 255, 0.3);
 }
 
 .btn-main i {
@@ -96,7 +110,8 @@ input:focus {
 
 .btn-main:hover {
     transform: scale(1.1);
-    background: #ff7733;
+    filter: brightness(1.2);
+    box-shadow: 0 0 20px rgba(71, 134, 255, 0.5);
 }
 
 .btn-secondary {
@@ -107,6 +122,11 @@ input:focus {
     width: 42px;
     height: 42px;
     transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+    color: #4786ff;
+    border-color: #4786ff;
 }
 
 .btn-secondary i {
@@ -137,7 +157,8 @@ input:focus {
     white-space: nowrap;
     padding-left: 100%;
     font-size: 0.85rem;
-    color: #ff5500;
+    /* Azul neon vibrante */
+    color: #4786ff;
     font-weight: 600;
     animation: marquee 12s linear infinite;
 }
@@ -181,8 +202,8 @@ li:hover {
 
 /* Estilo para a faixa ativa */
 .active-track {
-    background: rgba(255, 85, 0, 0.15) !important;
-    color: #ff5500 !important;
+    background: rgba(110, 60, 255, 0.15) !important;
+    color: #4786ff !important;
     font-weight: bold;
 }
 
@@ -200,7 +221,8 @@ li:hover {
 .now-playing-equalizer span {
     display: block !important;
     width: 3px !important;
-    background-color: #ff5500 !important;
+    /* Gradiente nas barras */
+    background-color: #4786ff !important;
     border-radius: 1px;
     animation: bounce 0.5s ease-in-out infinite alternate;
 }
@@ -224,6 +246,7 @@ li:hover {
     opacity: 0;
     pointer-events: none;
 }
+
 .album-selector {
   margin-bottom: 20px;
   text-align: left;
@@ -231,7 +254,7 @@ li:hover {
 
 .album-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-top: 10px;
 }
@@ -248,13 +271,12 @@ li:hover {
 }
 
 .btn-album:hover {
-  border-color: #ff5500;
+  border-color: #6e3cff;
   background: #333;
 }
 
-/* Quando a repetição estiver ligada, o botão fica laranja */
 .btn-repeat-active {
-    color: #ff5500 !important;
-    border-color: #ff5500 !important;
+    color: #4786ff !important;
+    border-color: #4786ff !important;
     transform: scale(1.1);
 }

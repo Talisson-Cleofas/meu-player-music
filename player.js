@@ -74,6 +74,8 @@ widget.bind(SC.Widget.Events.PLAY, () => {
 
 // 2. Sincronização de PAUSE
 widget.bind(SC.Widget.Events.PAUSE, () => {
+  // Adicione isso dentro do widget.bind(SC.Widget.Events.PLAY...)
+  document.title = "▶ " + sound.title;
   playIcon.className = "fas fa-play";
   if ("mediaSession" in navigator)
     navigator.mediaSession.playbackState = "paused";
