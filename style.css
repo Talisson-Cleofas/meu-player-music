@@ -21,21 +21,21 @@ body {
     box-shadow: 0 0 50px rgba(0,0,0,0.9);
 }
 
-/* --- CABEÇALHO FIXO COM SAFE AREA (iPhone) --- */
 .header-app {
     flex-shrink: 0;
-    padding-top: calc(15px + env(safe-area-inset-top));
-    padding-bottom: 15px;
     background: #1a1a1a;
+    /* Protege contra o notch do iPhone */
+    padding-top: calc(10px + env(safe-area-inset-top)); 
+    padding-bottom: 10px;
     border-bottom: 1px solid #333;
-    z-index: 10;
+    width: 100%;
 }
 
 .header-content {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 15px; /* Espaço entre a logo e o texto */
 }
 
 .brand-text {
@@ -45,27 +45,29 @@ body {
 }
 
 .main-title {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     font-weight: 800;
-    letter-spacing: 2px;
-    text-shadow: 0 0 8px rgba(0, 242, 255, 0.4);
+    letter-spacing: 1px;
+    color: white;
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
     line-height: 1;
 }
 
 .sub-title {
     font-size: 0.6rem;
     letter-spacing: 5px;
-    opacity: 0.6;
+    color: white;
+    opacity: 0.7;
+    margin-top: 4px;
 }
 
-/* --- ÁREA ROLÁVEL --- */
+/* Garante que o conteúdo role abaixo do cabeçalho fixo */
 .scroll-area {
     flex-grow: 1;
     overflow-y: auto;
     padding: 20px;
     -webkit-overflow-scrolling: touch;
 }
-
 .scroll-area::-webkit-scrollbar {
     width: 4px;
 }
