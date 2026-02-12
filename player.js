@@ -71,8 +71,8 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        // Mantém o canal de áudio ativo
-        audioFix.play().catch(() => {});
+        // Só damos play no audioFix se ele estiver pausado, para não interromper o canal
+        if (audioFix.paused) audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
     });
@@ -90,39 +90,37 @@ function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
 
-  audioFix.play().then(() => {
-      widget.isPaused((paused) => {
-        if (paused) {
-          widget.play();
-        } else {
-          widget.pause();
-        }
-        setTimeout(() => (isProcessing = false), 300);
-      });
-  }).catch(() => {
+  widget.isPaused((paused) => {
+    if (paused) {
+      // No play manual, garantimos que o áudio local "acorde"
+      audioFix.play().catch(() => {});
       widget.play();
-      isProcessing = false;
+    } else {
+      widget.pause();
+    }
+    setTimeout(() => (isProcessing = false), 300);
   });
 }
 
 function carregarConteudo(urlPersonalizada) {
-  // IGNIÇÃO iOS: Ativa o canal de áudio no momento do clique
+  // 1. "Aquece" o canal de áudio do iOS imediatamente com o clique
   audioFix.play().catch(() => {});
-
+  
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
     
-    // Carrega com autoplay: true
+    // 2. Carrega SEM autoplay primeiro para evitar o choque de canais no iOS
     widget.load(url, {
-      auto_play: true,
+      auto_play: false, 
       show_artwork: false,
       callback: () => {
-        // Força o play novamente após o load para garantir no iOS
+        // 3. Espera o Widget estabilizar e então ordena o Play
         setTimeout(() => {
-          widget.play(); 
+          widget.play();
+          
           widget.getSounds((sounds) => {
             if (sounds) {
               playlist = sounds.map((s) => ({ title: s.title }));
@@ -130,7 +128,7 @@ function carregarConteudo(urlPersonalizada) {
               widget.setLoop(isRepeating);
             }
           });
-        }, 1000);
+        }, 800); // Delay estratégico para o iOS
       },
     });
   }
@@ -143,7 +141,6 @@ function initAlbuns() {
     const btn = document.createElement("button");
     btn.className = "btn-album";
     btn.innerText = album.nome;
-    // O clique aqui já ativa o áudio
     btn.onclick = () => carregarConteudo(album.url);
     container.appendChild(btn);
   });
