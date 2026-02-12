@@ -4,7 +4,7 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Audio fix para manter o player vivo em background (Importante para Mobile)
+// Audio fix para manter o player vivo em background (Crucial para iOS)
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -12,9 +12,9 @@ audioFix.loop = true;
 
 let playlist = [];
 let isProcessing = false;
-let isRepeating = true; // Loop ativado por padrão
+let isRepeating = true;
 
-// 2. FUNÇÃO SPLASH (Esconde a tela de carregamento)
+// 2. FUNÇÃO SPLASH
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (splash) {
@@ -45,7 +45,6 @@ const meusAlbuns = [
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
-  // LÓGICA DE LOOP E PRÓXIMA MÚSICA
   widget.bind(SC.Widget.Events.FINISH, () => {
     if (isRepeating) {
       widget.getCurrentSoundIndex((index) => {
@@ -61,11 +60,8 @@ if (widget) {
     }
   });
 
-  // EVENTO AO DAR PLAY
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
-    
-    // Atualiza estado global para o sistema (Mobile)
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "playing";
     }
@@ -75,33 +71,47 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
+        // Mantém o canal de áudio ativo para o iOS não suspender o app
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
     });
   });
 
-  // EVENTO AO PAUSAR
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
-    
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
-    audioFix.pause();
+    // Não pausamos o audioFix aqui para manter a "posse" do canal de áudio no iOS
   });
 }
 
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
-  widget.isPaused((paused) => {
-    paused ? widget.play() : widget.pause();
-    setTimeout(() => (isProcessing = false), 300);
+
+  // Sincroniza o audioFix com a interação do usuário (Exigência do iOS)
+  audioFix.play().then(() => {
+      widget.isPaused((paused) => {
+        if (paused) {
+          widget.play();
+        } else {
+          widget.pause();
+        }
+        setTimeout(() => (isProcessing = false), 300);
+      });
+  }).catch(() => {
+      // Fallback caso o play falhe
+      widget.play();
+      isProcessing = false;
   });
 }
 
 function carregarConteudo(urlPersonalizada) {
+  // Acorda o sistema de áudio no primeiro toque
+  audioFix.play().catch(() => {});
+
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   if (url && url.includes("soundcloud.com") && widget) {
@@ -136,7 +146,6 @@ function initAlbuns() {
   });
 }
 
-// CONFIGURAÇÃO DA TELA DE BLOQUEIO (MEDIA SESSION)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url
@@ -150,15 +159,19 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // Handlers para os botões da tela de bloqueio
-    navigator.mediaSession.setActionHandler("play", () => widget.play());
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    // Handlers corrigidos para iOS
+    navigator.mediaSession.setActionHandler("play", () => {
+        audioFix.play().catch(() => {});
+        widget.play();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+        widget.pause();
+        // Mantemos o audioFix em 'play' silencioso para não perder o controle da tela de bloqueio
+    });
     
-    // Força botões de Anterior/Próximo (em vez de pular 10s)
     navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
 
-    // Desabilita explicitamente a busca por segundos para evitar ícones de 10s
     try {
         navigator.mediaSession.setActionHandler("seekbackward", null);
         navigator.mediaSession.setActionHandler("seekforward", null);
@@ -173,12 +186,14 @@ function updatePlaylistUI() {
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, "0")}</span><span class="track-name">${item.title}</span>`;
-    li.onclick = () => widget.skip(index);
+    li.onclick = () => {
+        audioFix.play().catch(() => {}); // Gesto do usuário para o iOS
+        widget.skip(index);
+    };
     listElement.appendChild(li);
   });
 }
 
-// ATUALIZA VISUAL DA FAIXA E INJETA AS BARRINHAS ANIMADAS
 function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach((li) => {
@@ -191,8 +206,6 @@ function updateActiveTrackVisual(currentTitle) {
 
     if (isCurrent) {
       li.classList.add("active-track");
-      
-      // Injeta o HTML das 3 barrinhas para o CSS animar
       const eq = document.createElement("div");
       eq.className = "now-playing-equalizer";
       eq.innerHTML = "<span></span><span></span><span></span>";
@@ -201,14 +214,19 @@ function updateActiveTrackVisual(currentTitle) {
   });
 }
 
-// Inicialização Geral
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
   if (document.getElementById("btnLoad"))
     document.getElementById("btnLoad").onclick = () => carregarConteudo();
   if (document.getElementById("btnNext"))
-    document.getElementById("btnNext").onclick = () => widget.next();
+    document.getElementById("btnNext").onclick = () => {
+        audioFix.play().catch(() => {});
+        widget.next();
+    };
   if (document.getElementById("btnPrev"))
-    document.getElementById("btnPrev").onclick = () => widget.prev();
+    document.getElementById("btnPrev").onclick = () => {
+        audioFix.play().catch(() => {});
+        widget.prev();
+    };
 });
