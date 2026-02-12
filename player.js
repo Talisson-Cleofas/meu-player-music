@@ -71,7 +71,7 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        // Mantém o canal de áudio ativo para o iOS não suspender o app
+        // Mantém o canal de áudio ativo
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -83,7 +83,6 @@ if (widget) {
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
-    // Não pausamos o audioFix aqui para manter a "posse" do canal de áudio no iOS
   });
 }
 
@@ -91,7 +90,6 @@ function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
 
-  // Sincroniza o audioFix com a interação do usuário (Exigência do iOS)
   audioFix.play().then(() => {
       widget.isPaused((paused) => {
         if (paused) {
@@ -102,25 +100,29 @@ function togglePlayback() {
         setTimeout(() => (isProcessing = false), 300);
       });
   }).catch(() => {
-      // Fallback caso o play falhe
       widget.play();
       isProcessing = false;
   });
 }
 
 function carregarConteudo(urlPersonalizada) {
-  // Acorda o sistema de áudio no primeiro toque
+  // IGNIÇÃO iOS: Ativa o canal de áudio no momento do clique
   audioFix.play().catch(() => {});
 
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
+  
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
+    
+    // Carrega com autoplay: true
     widget.load(url, {
       auto_play: true,
       show_artwork: false,
       callback: () => {
+        // Força o play novamente após o load para garantir no iOS
         setTimeout(() => {
+          widget.play(); 
           widget.getSounds((sounds) => {
             if (sounds) {
               playlist = sounds.map((s) => ({ title: s.title }));
@@ -128,7 +130,7 @@ function carregarConteudo(urlPersonalizada) {
               widget.setLoop(isRepeating);
             }
           });
-        }, 1500);
+        }, 1000);
       },
     });
   }
@@ -141,6 +143,7 @@ function initAlbuns() {
     const btn = document.createElement("button");
     btn.className = "btn-album";
     btn.innerText = album.nome;
+    // O clique aqui já ativa o áudio
     btn.onclick = () => carregarConteudo(album.url);
     container.appendChild(btn);
   });
@@ -159,14 +162,12 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // Handlers corrigidos para iOS
     navigator.mediaSession.setActionHandler("play", () => {
         audioFix.play().catch(() => {});
         widget.play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
         widget.pause();
-        // Mantemos o audioFix em 'play' silencioso para não perder o controle da tela de bloqueio
     });
     
     navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
@@ -187,7 +188,7 @@ function updatePlaylistUI() {
     const li = document.createElement("li");
     li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, "0")}</span><span class="track-name">${item.title}</span>`;
     li.onclick = () => {
-        audioFix.play().catch(() => {}); // Gesto do usuário para o iOS
+        audioFix.play().catch(() => {}); 
         widget.skip(index);
     };
     listElement.appendChild(li);
