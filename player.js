@@ -2,6 +2,8 @@ const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
+// Verificação de segurança para o botão repeat
+const btnRepeat = document.getElementById("btnRepeat");
 
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
