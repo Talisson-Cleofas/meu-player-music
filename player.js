@@ -4,7 +4,7 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Audio fix: Mantém o canal de áudio aberto
+// Audio fix: Essencial para manter o serviço de áudio ativo no Android/iOS
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -62,6 +62,8 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
+    
+    // Sincronização de estado para Android
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "playing";
     }
@@ -71,6 +73,8 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
+        
+        // Android exige que o áudio de suporte seja tocado após o gesto
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -79,6 +83,8 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
+    
+    // Sincronização de estado para Android
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
@@ -101,7 +107,9 @@ function togglePlayback() {
 }
 
 function carregarConteudo(urlPersonalizada) {
+  // Ativação imediata para garantir permissão no Android/iOS
   audioFix.play().catch(() => {});
+  
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   
@@ -125,7 +133,7 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
-// CORREÇÃO DOS BOTÕES SUMIDOS NA TELA DE BLOQUEIO
+// CORREÇÃO: Handlers universais (iOS + Android)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
@@ -137,25 +145,33 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Registrar handlers explicitamente para forçar os botões a aparecerem
-    const actionHandlers = [
-      ['play', () => { audioFix.play().catch(() => {}); widget.play(); }],
-      ['pause', () => { widget.pause(); }],
-      ['previoustrack', () => { audioFix.play().catch(() => {}); widget.prev(); }],
-      ['nexttrack', () => { audioFix.play().catch(() => {}); widget.next(); }]
-    ];
+    // Registrar funções de controle
+    navigator.mediaSession.setActionHandler('play', () => {
+        // No Android, resetar o audioFix ajuda a recuperar o controle
+        audioFix.currentTime = 0;
+        audioFix.play().catch(() => {});
+        widget.play();
+        navigator.mediaSession.playbackState = "playing";
+    });
 
-    for (const [action, handler] of actionHandlers) {
-      try {
-        navigator.mediaSession.setActionHandler(action, handler);
-      } catch (error) {
-        console.log(`O handler ${action} não é suportado.`);
-      }
-    }
+    navigator.mediaSession.setActionHandler('pause', () => {
+        widget.pause();
+        navigator.mediaSession.playbackState = "paused";
+    });
 
-    // Desabilitar Seek (pular segundos) para garantir que apareça o ícone de Próxima/Anterior
-    navigator.mediaSession.setActionHandler('seekbackward', null);
-    navigator.mediaSession.setActionHandler('seekforward', null);
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        widget.prev();
+    });
+
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        widget.next();
+    });
+
+    // Remove botões de seek para garantir botões de track no Android
+    try {
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+    } catch(e) {}
   }
 }
 
@@ -208,6 +224,6 @@ function initAlbuns() {
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
-  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
+  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => widget.next();
+  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => widget.prev();
 });
