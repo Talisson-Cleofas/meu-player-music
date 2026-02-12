@@ -460,5 +460,28 @@ li.active-track {
     justify-content: space-between;
     align-items: center;
     background: rgba(110, 60, 255, 0.2) !important;
-    color: #4786ff !important;
+    color: #4786ff !.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 20px;
+  color: #fff;
+  font-family: sans-serif;
+  font-size: 14px;
 }
+
+#progressSlider {
+  flex-grow: 1;
+  cursor: pointer;
+  accent-color: #ff5500; /* Cor clássica do SoundCloud ou use a do seu tema */
+}
+
+input[type="range"] {
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+
