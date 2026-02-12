@@ -29,6 +29,61 @@
     </style>
   </head>
   <body>
+    <div id="splash-screen">
+      <div class="splash-content">
+        <div class="logo-container">
+          <svg
+            width="200"
+            height="200"
+            viewBox="0 0 512 512"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient
+                id="splashGrad"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop
+                  offset="0%"
+                  style="stop-color: #00f2ff; stop-opacity: 1"
+                />
+                <stop
+                  offset="50%"
+                  style="stop-color: #7000ff; stop-opacity: 1"
+                />
+                <stop
+                  offset="100%"
+                  style="stop-color: #ff00de; stop-opacity: 1"
+                />
+              </linearGradient>
+              <filter id="neonBlur">
+                <feGaussianBlur stdDeviation="10" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            <path
+              d="M380,200c-4,0-8,0.3-12,0.8c-16-45-60-75-112-75c-58,0-106,40-118,95c-38,5-68,36-68,75c0,42,34,76,76,76h228c47,0,86-38,86-86S427,200,380,200z"
+              fill="url(#splashGrad)"
+              filter="url(#neonBlur)"
+            />
+            <rect
+              class="bar-pulse"
+              x="250"
+              y="195"
+              width="22"
+              height="150"
+              rx="11"
+              fill="white"
+            />
+          </svg>
+        </div>
+        <div class="loader-line"></div>
+        <p class="loading-text">Iniciando CloudCast...</p>
+      </div>
+    </div>
     <main class="player-card">
       <div class="logo-container">
         <svg

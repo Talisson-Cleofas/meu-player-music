@@ -275,4 +275,11 @@ document.addEventListener("DOMContentLoaded", () => {
   btnRepeat.onclick = toggleRepeat; // Evento de clique para o botão de repetição
   // Garante que o estado inicial do widget seja loop
   widget.setLoop(true);
+  window.addEventListener("load", () => {
+    const splash = document.getElementById("splash-screen");
+    // Pequeno delay para garantir que o usuário veja a logo neon
+    setTimeout(() => {
+      splash.classList.add("splash-hidden");
+    }, 2000);
+  });
 });
