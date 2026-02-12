@@ -1,4 +1,4 @@
-// 1. Definições globais com proteção (evita erro se o ID não existir no HTML)
+// 1. Definições globais com proteção
 const widgetIframe = document.getElementById("sc-widget");
 const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
@@ -13,9 +13,9 @@ audioFix.loop = true;
 
 let playlist = [];
 let isProcessing = false;
-let isRepeating = true;
+let isRepeating = true; // Loop ativado por padrão
 
-// 2. FUNÇÃO SPLASH (Colocada no topo para garantir execução)
+// 2. FUNÇÃO SPLASH
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (splash) {
@@ -26,8 +26,6 @@ function hideSplash() {
     }, 600);
   }
 }
-
-// 3. Forçar saída da Splash (Independente de qualquer erro no resto do código)
 setTimeout(hideSplash, 2500);
 
 // --- BIBLIOTECA DE ÁLBUNS ---
@@ -73,6 +71,24 @@ const meusAlbuns = [
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
+  // LÓGICA DE LOOP UNIVERSAL (Resolve Android/Chrome)
+  widget.bind(SC.Widget.Events.FINISH, () => {
+    if (isRepeating) {
+      widget.getCurrentSoundIndex((index) => {
+        widget.getSounds((sounds) => {
+          if (sounds && index === sounds.length - 1) {
+            // Se for a última música, volta para a primeira
+            widget.skip(0);
+          } else {
+            // Senão, vai para a próxima
+            widget.next();
+          }
+          widget.play();
+        });
+      });
+    }
+  });
+
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
     widget.getCurrentSound((sound) => {
@@ -81,6 +97,7 @@ if (widget) {
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
         audioFix.play().catch(() => {});
+        applyMediaSession(sound);
       }
     });
   });
@@ -114,7 +131,7 @@ function carregarConteudo(urlPersonalizada) {
             if (sounds) {
               playlist = sounds.map((s) => ({ title: s.title }));
               updatePlaylistUI();
-              widget.setLoop(true);
+              widget.setLoop(isRepeating);
             }
           });
         }, 1500);
@@ -135,6 +152,23 @@ function initAlbuns() {
   });
 }
 
+function applyMediaSession(sound) {
+  if ("mediaSession" in navigator) {
+    const artwork = sound.artwork_url
+      ? sound.artwork_url.replace("-large", "-t500x500")
+      : "";
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: sound.title,
+      artist: sound.user.username,
+      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
+    navigator.mediaSession.setActionHandler("previoustrack", () =>
+      widget.prev(),
+    );
+  }
+}
+
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
   if (!listElement) return;
@@ -150,8 +184,10 @@ function updatePlaylistUI() {
 function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach((li) => {
-    const nameText = li.querySelector(".track-name").innerText;
-    li.classList.toggle("active-track", nameText === currentTitle);
+    const nameElem = li.querySelector(".track-name");
+    if (nameElem) {
+      li.classList.toggle("active-track", nameElem.innerText === currentTitle);
+    }
   });
 }
 
