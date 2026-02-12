@@ -16,7 +16,7 @@ audioFix.loop = true;
 let playlist = [];
 let isProcessing = false;
 let isRepeating = true;
-let isDragging = false; // Bloqueia atualização automática enquanto o usuário arrasta o slider
+let isDragging = false; 
 
 // 2. FUNÇÃO SPLASH
 function hideSplash() {
@@ -47,11 +47,9 @@ const meusAlbuns = [
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
-  // Sincroniza a barra de progresso e o tempo atual
   widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
     if (!isDragging && progressSlider) {
       const currentPos = data.currentPosition;
-      
       widget.getDuration((duration) => {
         if (duration > 0) {
           const percentage = (currentPos / duration) * 100;
@@ -93,7 +91,6 @@ if (widget) {
   });
 }
 
-// FORMATAÇÃO DE TEMPO (ms para mm:ss)
 function formatTime(ms) {
   if (!ms || isNaN(ms)) return "0:00";
   const totalSeconds = Math.floor(ms / 1000);
@@ -102,12 +99,8 @@ function formatTime(ms) {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 }
 
-// LOGICA DO SLIDER (SEEK)
 if (progressSlider) {
-  progressSlider.addEventListener("input", () => {
-    isDragging = true; // Pausa a atualização automática enquanto o usuário arrasta
-  });
-
+  progressSlider.addEventListener("input", () => { isDragging = true; });
   progressSlider.addEventListener("change", () => {
     widget.getDuration((duration) => {
       const seekToMs = (progressSlider.value / 100) * duration;
@@ -156,9 +149,11 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
+// CORREÇÃO REFORÇADA PARA TELA DE BLOQUEIO
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
+    
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
@@ -166,14 +161,28 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    navigator.mediaSession.setActionHandler('play', () => {
-        audioFix.currentTime = 0;
-        audioFix.play().catch(() => {});
-        widget.play();
-    });
-    navigator.mediaSession.setActionHandler('pause', () => widget.pause());
-    navigator.mediaSession.setActionHandler('previoustrack', () => widget.prev());
-    navigator.mediaSession.setActionHandler('nexttrack', () => widget.next());
+    const kickAudio = () => {
+      audioFix.currentTime = 0;
+      audioFix.play().catch(() => {});
+    };
+
+    // Botões Principais
+    navigator.mediaSession.setActionHandler('play', () => { kickAudio(); widget.play(); });
+    navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
+    
+    // Botões de Pular/Voltar (Garante que apareçam no lugar do Seek)
+    navigator.mediaSession.setActionHandler('previoustrack', () => { kickAudio(); widget.prev(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { kickAudio(); widget.next(); });
+
+    // Desativa os botões de pular 10s (Seek) para forçar as setas de faixa
+    try {
+      navigator.mediaSession.setActionHandler('seekbackward', null);
+      navigator.mediaSession.setActionHandler('seekforward', null);
+      // Permite arrastar a barra de progresso na notificação do sistema
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime) widget.seekTo(details.seekTime * 1000);
+      });
+    } catch (e) {}
   }
 }
 
@@ -184,10 +193,7 @@ function updatePlaylistUI() {
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, "0")}</span><span class="track-name">${item.title}</span>`;
-    li.onclick = () => {
-        audioFix.play().catch(() => {}); 
-        widget.skip(index);
-    };
+    li.onclick = () => { audioFix.play().catch(() => {}); widget.skip(index); };
     listElement.appendChild(li);
   });
 }
@@ -200,7 +206,6 @@ function updateActiveTrackVisual(currentTitle) {
     li.classList.remove("active-track");
     const existingEq = li.querySelector(".now-playing-equalizer");
     if (existingEq) existingEq.remove();
-
     if (isCurrent) {
       li.classList.add("active-track");
       const eq = document.createElement("div");
