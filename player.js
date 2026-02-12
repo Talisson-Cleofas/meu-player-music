@@ -1,19 +1,18 @@
-// 1. Definições globais e referências de elementos
+// 1. Definições globais
 const widgetIframe = document.getElementById("sc-widget");
 const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
-
 const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// Audio fix: Mantemos 0.02 de volume para o Android não suspender o processo de áudio.
+// AUDIO FIX REFORÇADO: Usamos um arquivo de 10s para o Android sentir a "mudança" de faixa de tempo
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
 audioFix.loop = true;
-audioFix.volume = 0.02;
+audioFix.volume = 0.05; // Volume levemente maior para evitar suspensão agressiva de bateria
 
 let playlist = [];
 let isProcessing = false;
@@ -86,7 +85,6 @@ if (widget) {
             currentTimeDisplay.innerText = formatTime(currentPos);
           if (totalDurationDisplay)
             totalDurationDisplay.innerText = formatTime(duration);
-
           updatePositionState(currentPos, duration);
         }
       });
@@ -95,6 +93,7 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
+    // Forçamos o estado da Media Session
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "playing";
 
@@ -103,7 +102,7 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-
+        // O audioFix DEVE tocar sempre que a música tocar
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -114,14 +113,10 @@ if (widget) {
     if (playIcon) playIcon.className = "fas fa-play";
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "paused";
-    // IMPORTANTE: Não pausamos o audioFix aqui para manter o controle do Android vivo.
   });
 
   widget.bind(SC.Widget.Events.FINISH, () => {
-    if (isRepeating) {
-      widget.next();
-      setTimeout(() => widget.play(), 500);
-    }
+    widget.next();
   });
 }
 
@@ -143,28 +138,20 @@ function formatTime(ms) {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 }
 
-if (progressSlider) {
-  progressSlider.addEventListener("input", () => {
-    isDragging = true;
-  });
-  progressSlider.addEventListener("change", () => {
-    widget.getDuration((duration) => {
-      const seekToMs = (progressSlider.value / 100) * duration;
-      widget.seekTo(seekToMs);
-      setTimeout(() => {
-        isDragging = false;
-      }, 600);
-    });
-  });
-}
-
+// TOGGLE PLAYBACK CORRIGIDO PARA GESTO DO USUÁRIO
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
+
   widget.isPaused((paused) => {
     if (paused) {
-      audioFix.play().catch(() => {});
-      widget.play();
+      // Re-executa o audioFix primeiro para garantir foco
+      audioFix
+        .play()
+        .then(() => {
+          widget.play();
+        })
+        .catch(() => widget.play());
     } else {
       widget.pause();
     }
@@ -197,6 +184,7 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
+// MEDIASESSION COM HARD-RESET DE FOCO
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url
@@ -210,13 +198,17 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // O SEGREDO PARA VOLTAR O PLAY NO ANDROID:
+    // HANDLER DE PLAY: A Chave para o Android
     navigator.mediaSession.setActionHandler("play", async () => {
+      // 1. Resetamos o tempo do silêncio para gerar um evento de "mudança de áudio"
+      audioFix.currentTime = 0;
       try {
-        await audioFix.play(); // Garante o áudio local primeiro
-        widget.play(); // Depois retoma o widget
+        await audioFix.play();
+        // 2. Só pedimos o play do widget APÓS o audioFix estar rodando
+        widget.play();
         navigator.mediaSession.playbackState = "playing";
       } catch (err) {
+        console.log("Erro ao retomar áudio");
         widget.play();
       }
     });
@@ -230,19 +222,17 @@ function applyMediaSession(sound) {
       audioFix.play().catch(() => {});
       widget.prev();
     });
+
     navigator.mediaSession.setActionHandler("nexttrack", () => {
       audioFix.play().catch(() => {});
       widget.next();
     });
 
-    try {
-      navigator.mediaSession.setActionHandler("seekto", (details) => {
-        if (details.seekTime) {
-          widget.seekTo(details.seekTime * 1000);
-          updatePositionState(details.seekTime * 1000, sound.duration);
-        }
-      });
-    } catch (e) {}
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (details.seekTime) {
+        widget.seekTo(details.seekTime * 1000);
+      }
+    });
   }
 }
 
