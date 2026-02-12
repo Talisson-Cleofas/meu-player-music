@@ -2,7 +2,6 @@ const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe);
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
-const btnRepeat = document.getElementById("btnRepeat"); // Referência ao novo botão
 
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
@@ -53,6 +52,18 @@ const meusAlbuns = [
     url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria",
   },
 ];
+
+// --- FUNÇÃO PARA REMOVER SPLASH SCREEN ---
+function hideSplash() {
+  const splash = document.getElementById("splash-screen");
+  if (splash && !splash.classList.contains("splash-hidden")) {
+    splash.classList.add("splash-hidden");
+    setTimeout(() => {
+      splash.style.display = "none";
+    }, 800);
+    console.log("Splash Screen removida.");
+  }
+}
 
 // 1. Sincronização de PLAY
 widget.bind(SC.Widget.Events.PLAY, () => {
@@ -275,11 +286,11 @@ document.addEventListener("DOMContentLoaded", () => {
   btnRepeat.onclick = toggleRepeat; // Evento de clique para o botão de repetição
   // Garante que o estado inicial do widget seja loop
   widget.setLoop(true);
+  // Remover Splash Screen
   window.addEventListener("load", () => {
-    const splash = document.getElementById("splash-screen");
-    // Pequeno delay para garantir que o usuário veja a logo neon
-    setTimeout(() => {
-      splash.classList.add("splash-hidden");
-    }, 2000);
+    setTimeout(hideSplash, 2000);
   });
+
+  // Fallback de segurança (se o load demorar mais de 4s, ele força a saída)
+  setTimeout(hideSplash, 4000);
 });
