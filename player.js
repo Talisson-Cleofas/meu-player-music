@@ -1,10 +1,11 @@
+// 1. Definições globais com proteção (evita erro se o ID não existir no HTML)
 const widgetIframe = document.getElementById("sc-widget");
-const widget = SC.Widget(widgetIframe);
+const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
-// Verificação de segurança para o botão repeat
 const btnRepeat = document.getElementById("btnRepeat");
 
+// Audio fix para manter o player vivo em background
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -12,9 +13,24 @@ audioFix.loop = true;
 
 let playlist = [];
 let isProcessing = false;
-let isRepeating = false; // Estado inicial da repetição
+let isRepeating = true;
 
-// --- CONFIGURAÇÃO DA BIBLIOTECA DE ÁLBUNS ---
+// 2. FUNÇÃO SPLASH (Colocada no topo para garantir execução)
+function hideSplash() {
+  const splash = document.getElementById("splash-screen");
+  if (splash) {
+    splash.style.opacity = "0";
+    setTimeout(() => {
+      splash.style.display = "none";
+      console.log("Splash removida.");
+    }, 600);
+  }
+}
+
+// 3. Forçar saída da Splash (Independente de qualquer erro no resto do código)
+setTimeout(hideSplash, 2500);
+
+// --- BIBLIOTECA DE ÁLBUNS ---
 const meusAlbuns = [
   {
     nome: "Efeito Atomiko",
@@ -38,15 +54,15 @@ const meusAlbuns = [
   { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
   { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
   {
-    nome: "O Cordeiro, o leão e o trono Part 1",
+    nome: "Cordeiro 1",
     url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao",
   },
   {
-    nome: "O Cordeiro, o leão e o trono Part 2",
+    nome: "Cordeiro 2",
     url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao",
   },
   {
-    nome: "O Cordeiro, o leão e o trono Part 3",
+    nome: "Cordeiro 3",
     url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4",
   },
   {
@@ -55,132 +71,61 @@ const meusAlbuns = [
   },
 ];
 
-// --- FUNÇÃO PARA REMOVER SPLASH SCREEN ---
-function hideSplash() {
-  const splash = document.getElementById("splash-screen");
-  if (splash && !splash.classList.contains("splash-hidden")) {
-    splash.classList.add("splash-hidden");
-    setTimeout(() => {
-      splash.style.display = "none";
-    }, 800);
-    console.log("Splash Screen removida.");
-  }
+// --- LOGICA DO PLAYER ---
+if (widget) {
+  widget.bind(SC.Widget.Events.PLAY, () => {
+    if (playIcon) playIcon.className = "fas fa-pause";
+    widget.getCurrentSound((sound) => {
+      if (sound) {
+        document.getElementById("status").innerText = sound.title;
+        document.title = "▶ " + sound.title;
+        updateActiveTrackVisual(sound.title);
+        audioFix.play().catch(() => {});
+      }
+    });
+  });
+
+  widget.bind(SC.Widget.Events.PAUSE, () => {
+    if (playIcon) playIcon.className = "fas fa-play";
+    audioFix.pause();
+  });
 }
 
-// 1. Sincronização de PLAY
-widget.bind(SC.Widget.Events.PLAY, () => {
-  playIcon.className = "fas fa-pause";
-
-  widget.getCurrentSound((sound) => {
-    if (sound) {
-      document.getElementById("status").innerText = sound.title;
-
-      setTimeout(() => {
-        applyMediaSession(sound);
-      }, 400);
-
-      updateActiveTrackVisual(sound.title);
-      audioFix.play().catch(() => {});
-    }
-  });
-});
-
-// 2. Sincronização de PAUSE
-widget.bind(SC.Widget.Events.PAUSE, () => {
-  playIcon.className = "fas fa-play";
-  if ("mediaSession" in navigator)
-    navigator.mediaSession.playbackState = "paused";
-  audioFix.pause();
-});
-
-// 3. Lógica do Botão Único (Play/Pause)
 function togglePlayback() {
-  if (isProcessing) return;
+  if (isProcessing || !widget) return;
   isProcessing = true;
   widget.isPaused((paused) => {
-    if (paused) {
-      widget.play();
-      audioFix.play().catch(() => {});
-    } else {
-      widget.pause();
-    }
-    setTimeout(() => {
-      isProcessing = false;
-    }, 300);
+    paused ? widget.play() : widget.pause();
+    setTimeout(() => (isProcessing = false), 300);
   });
 }
 
-// 3.1 Lógica do Botão de Repetir
-function toggleRepeat() {
-  isRepeating = !isRepeating;
-
-  // Define o loop no Widget do SoundCloud
-  widget.setLoop(isRepeating);
-
-  // Atualiza visual do botão
-  if (isRepeating) {
-    btnRepeat.classList.add("btn-repeat-active");
-  } else {
-    btnRepeat.classList.remove("btn-repeat-active");
-  }
-}
-
-// 4. Carregar Álbum da Biblioteca ou Input
-async function carregarConteudo(urlPersonalizada) {
+function carregarConteudo(urlPersonalizada) {
   const urlInput = document.getElementById("videoUrl");
-  let url = urlPersonalizada || urlInput.value.trim();
-
-  if (url.includes("soundcloud.com")) {
-    const status = document.getElementById("status");
-    status.innerText = "Sintonizando...";
-
-    url = url.replace("m.soundcloud.com", "soundcloud.com").split("?")[0];
-
+  let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
+  if (url && url.includes("soundcloud.com") && widget) {
+    document.getElementById("status").innerText = "Sintonizando...";
     widget.load(url, {
       auto_play: true,
       show_artwork: false,
       callback: () => {
-        // 1. Primeiro esperamos o Widget estar pronto para nos dar a lista
         setTimeout(() => {
           widget.getSounds((sounds) => {
-            if (sounds && sounds.length > 0) {
+            if (sounds) {
               playlist = sounds.map((s) => ({ title: s.title }));
               updatePlaylistUI();
-
-              // 2. SÓ ATIVAMOS O LOOP DEPOIS QUE A LISTA JÁ FOI RENDERIZADA
-              setTimeout(() => {
-                widget.setLoop(true);
-                console.log("Loop automático ativado.");
-              }, 500);
-
-              widget.play();
-            } else {
-              // Tentativa de emergência caso o SoundCloud demore a responder
-              recarregarListaManual();
+              widget.setLoop(true);
             }
           });
-        }, 1500); // Tempo seguro para o Iframe processar o link
+        }, 1500);
       },
     });
   }
-  if (!urlPersonalizada) urlInput.value = "";
 }
 
-// Função de segurança para garantir que a lista apareça
-function recarregarListaManual() {
-  widget.getSounds((sounds) => {
-    if (sounds) {
-      playlist = sounds.map((s) => ({ title: s.title }));
-      updatePlaylistUI();
-    }
-  });
-}
-
-// 5. Inicializar Botões de Álbuns
 function initAlbuns() {
   const container = document.getElementById("albumButtons");
   if (!container) return;
-
   meusAlbuns.forEach((album) => {
     const btn = document.createElement("button");
     btn.className = "btn-album";
@@ -190,67 +135,9 @@ function initAlbuns() {
   });
 }
 
-function nextTrack() {
-  audioFix.play().catch(() => {});
-
-  // Verifica qual é a música atual antes de pular
-  widget.getCurrentSoundIndex((index) => {
-    widget.getSounds((sounds) => {
-      if (sounds) {
-        const totalTracks = sounds.length;
-
-        // Se o índice atual for o último (total - 1), pula para a primeira (0)
-        if (index === totalTracks - 1) {
-          widget.skip(0);
-        } else {
-          widget.next(); // Caso contrário, pula normal
-        }
-      }
-    });
-  });
-}
-
-function prevTrack() {
-  audioFix.play().catch(() => {});
-  widget.prev();
-}
-
-// 6. Configuração da MediaSession
-function applyMediaSession(sound) {
-  if ("mediaSession" in navigator) {
-    navigator.mediaSession.metadata = null;
-
-    const artwork = sound.artwork_url
-      ? sound.artwork_url
-          .replace("http:", "https:")
-          .replace("-large", "-t500x500")
-      : "https://a-v2.sndcdn.com/assets/images/default_track_artwork-6db91781.png";
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: sound.title,
-      artist: sound.user.username,
-      album: "SoundCloud Player",
-      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
-    });
-
-    navigator.mediaSession.playbackState = "playing";
-
-    navigator.mediaSession.setActionHandler("play", () => widget.play());
-    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
-    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
-    navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
-
-    const disableActions = ["seekbackward", "seekforward", "seekto"];
-    disableActions.forEach((action) => {
-      try {
-        navigator.mediaSession.setActionHandler(action, null);
-      } catch (e) {}
-    });
-  }
-}
-
 function updatePlaylistUI() {
   const listElement = document.getElementById("playlistView");
+  if (!listElement) return;
   listElement.innerHTML = "";
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
@@ -262,37 +149,20 @@ function updatePlaylistUI() {
 
 function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
-
   items.forEach((li) => {
-    li.classList.remove("active-track");
-    const existingEq = li.querySelector(".now-playing-equalizer");
-    if (existingEq) existingEq.remove();
-
     const nameText = li.querySelector(".track-name").innerText;
-    if (nameText === currentTitle) {
-      li.classList.add("active-track");
-      const eq = document.createElement("div");
-      eq.className = "now-playing-equalizer";
-      eq.innerHTML = "<span></span><span></span><span></span>";
-      li.appendChild(eq);
-    }
+    li.classList.toggle("active-track", nameText === currentTitle);
   });
 }
 
+// Inicialização
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
-  document.getElementById("btnLoad").onclick = () => carregarConteudo();
-  btnTogglePlay.onclick = togglePlayback;
-  document.getElementById("btnNext").onclick = nextTrack;
-  document.getElementById("btnPrev").onclick = prevTrack;
-  btnRepeat.onclick = toggleRepeat; // Evento de clique para o botão de repetição
-  // Garante que o estado inicial do widget seja loop
-  widget.setLoop(true);
-  // Fallback: Remove a splash screen independentemente de qualquer erro após 3 segundos
-  setTimeout(hideSplash, 3000);
-});
-
-// Tenta remover a splash no load da página também
-window.addEventListener("load", () => {
-  setTimeout(hideSplash, 1000);
+  if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
+  if (document.getElementById("btnLoad"))
+    document.getElementById("btnLoad").onclick = () => carregarConteudo();
+  if (document.getElementById("btnNext"))
+    document.getElementById("btnNext").onclick = () => widget.next();
+  if (document.getElementById("btnPrev"))
+    document.getElementById("btnPrev").onclick = () => widget.prev();
 });
