@@ -4,6 +4,11 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
+// Elementos da Barra de Progresso
+const progressSlider = document.getElementById("progressSlider");
+const currentTimeDisplay = document.getElementById("currentTime");
+const totalDurationDisplay = document.getElementById("totalDuration");
+
 // Audio fix: Essencial para manter o serviço de áudio ativo no Android/iOS
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
@@ -13,6 +18,7 @@ audioFix.loop = true;
 let playlist = [];
 let isProcessing = false;
 let isRepeating = true;
+let isDragging = false; // Bloqueia atualização automática enquanto o usuário arrasta
 
 // 2. FUNÇÃO SPLASH
 function hideSplash() {
@@ -60,10 +66,22 @@ if (widget) {
     }
   });
 
+  // ATUALIZAÇÃO DA BARRA EM TEMPO REAL
+  widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+    if (!isDragging && progressSlider) {
+      const currentPos = data.currentPosition;
+      const relativePos = data.relativePosition; // 0 a 1
+      
+      progressSlider.value = relativePos * 100;
+      if (currentTimeDisplay) {
+        currentTimeDisplay.innerText = formatTime(currentPos);
+      }
+    }
+  });
+
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
     
-    // Sincronização de estado para Android
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "playing";
     }
@@ -74,7 +92,11 @@ if (widget) {
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
         
-        // Android exige que o áudio de suporte seja tocado após o gesto
+        // Atualiza a duração total assim que o play começa
+        if (totalDurationDisplay) {
+          totalDurationDisplay.innerText = formatTime(sound.duration);
+        }
+
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -83,11 +105,33 @@ if (widget) {
 
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
-    
-    // Sincronização de estado para Android
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
+  });
+}
+
+// FORMATAÇÃO DE TEMPO (ms para mm:ss)
+function formatTime(ms) {
+  if (!ms) return "0:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+}
+
+// LOGICA DO SLIDER (SEEK)
+if (progressSlider) {
+  progressSlider.addEventListener("input", () => {
+    isDragging = true;
+  });
+
+  progressSlider.addEventListener("change", () => {
+    widget.getDuration((duration) => {
+      const seekToMs = (progressSlider.value / 100) * duration;
+      widget.seekTo(seekToMs);
+      isDragging = false;
+    });
   });
 }
 
@@ -107,9 +151,7 @@ function togglePlayback() {
 }
 
 function carregarConteudo(urlPersonalizada) {
-  // Ativação imediata para garantir permissão no Android/iOS
   audioFix.play().catch(() => {});
-  
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   
@@ -133,45 +175,25 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
-// CORREÇÃO: Handlers universais (iOS + Android)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
     
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
-      artist: "CloudCast",
-      album: "Original Music",
+      artist: "Colo de Deus",
+      album: "CloudCast",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Registrar funções de controle
     navigator.mediaSession.setActionHandler('play', () => {
-        // No Android, resetar o audioFix ajuda a recuperar o controle
         audioFix.currentTime = 0;
         audioFix.play().catch(() => {});
         widget.play();
-        navigator.mediaSession.playbackState = "playing";
     });
-
-    navigator.mediaSession.setActionHandler('pause', () => {
-        widget.pause();
-        navigator.mediaSession.playbackState = "paused";
-    });
-
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-        widget.prev();
-    });
-
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-        widget.next();
-    });
-
-    // Remove botões de seek para garantir botões de track no Android
-    try {
-        navigator.mediaSession.setActionHandler('seekbackward', null);
-        navigator.mediaSession.setActionHandler('seekforward', null);
-    } catch(e) {}
+    navigator.mediaSession.setActionHandler('pause', () => widget.pause());
+    navigator.mediaSession.setActionHandler('previoustrack', () => widget.prev());
+    navigator.mediaSession.setActionHandler('nexttrack', () => widget.next());
   }
 }
 
