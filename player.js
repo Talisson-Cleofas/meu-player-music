@@ -8,7 +8,7 @@ const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// Audio fix: Aumentamos para 0.02 para garantir que o Android mantenha o processo de áudio "vivo"
+// Audio fix: Mantemos 0.02 de volume para o Android não suspender o processo de áudio.
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -87,7 +87,6 @@ if (widget) {
           if (totalDurationDisplay)
             totalDurationDisplay.innerText = formatTime(duration);
 
-          // SINCRONIZA A BARRA NA TELA DE BLOQUEIO (ANDROID/iOS)
           updatePositionState(currentPos, duration);
         }
       });
@@ -115,6 +114,7 @@ if (widget) {
     if (playIcon) playIcon.className = "fas fa-play";
     if ("mediaSession" in navigator)
       navigator.mediaSession.playbackState = "paused";
+    // IMPORTANTE: Não pausamos o audioFix aqui para manter o controle do Android vivo.
   });
 
   widget.bind(SC.Widget.Events.FINISH, () => {
@@ -125,7 +125,6 @@ if (widget) {
   });
 }
 
-// ATUALIZA O ESTADO DA POSIÇÃO NO SISTEMA OPERACIONAL
 function updatePositionState(currentMs, totalMs) {
   if ("setPositionState" in navigator.mediaSession) {
     navigator.mediaSession.setPositionState({
@@ -198,7 +197,6 @@ function carregarConteudo(urlPersonalizada) {
   }
 }
 
-// MEDIA SESSION REFORÇADA PARA ANDROID (PLAY/PAUSE + TEMPO)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url
@@ -212,17 +210,15 @@ function applyMediaSession(sound) {
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // PLAY: Primeiro garante o áudio local (audioFix), depois o widget
-    navigator.mediaSession.setActionHandler("play", () => {
-      audioFix
-        .play()
-        .then(() => {
-          widget.play();
-          navigator.mediaSession.playbackState = "playing";
-        })
-        .catch(() => {
-          widget.play();
-        });
+    // O SEGREDO PARA VOLTAR O PLAY NO ANDROID:
+    navigator.mediaSession.setActionHandler("play", async () => {
+      try {
+        await audioFix.play(); // Garante o áudio local primeiro
+        widget.play(); // Depois retoma o widget
+        navigator.mediaSession.playbackState = "playing";
+      } catch (err) {
+        widget.play();
+      }
     });
 
     navigator.mediaSession.setActionHandler("pause", () => {
@@ -240,8 +236,6 @@ function applyMediaSession(sound) {
     });
 
     try {
-      navigator.mediaSession.setActionHandler("seekbackward", null);
-      navigator.mediaSession.setActionHandler("seekforward", null);
       navigator.mediaSession.setActionHandler("seekto", (details) => {
         if (details.seekTime) {
           widget.seekTo(details.seekTime * 1000);
