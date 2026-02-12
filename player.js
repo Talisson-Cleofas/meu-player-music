@@ -288,11 +288,11 @@ document.addEventListener("DOMContentLoaded", () => {
   btnRepeat.onclick = toggleRepeat; // Evento de clique para o botão de repetição
   // Garante que o estado inicial do widget seja loop
   widget.setLoop(true);
-  // Remover Splash Screen
-  window.addEventListener("load", () => {
-    setTimeout(hideSplash, 2000);
-  });
+  // Fallback: Remove a splash screen independentemente de qualquer erro após 3 segundos
+  setTimeout(hideSplash, 3000);
+});
 
-  // Fallback de segurança (se o load demorar mais de 4s, ele força a saída)
-  setTimeout(hideSplash, 4000);
+// Tenta remover a splash no load da página também
+window.addEventListener("load", () => {
+  setTimeout(hideSplash, 1000);
 });
