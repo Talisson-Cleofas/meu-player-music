@@ -4,8 +4,7 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Audio fix: O SEGREDO está em nunca pausar este áudio. 
-// Ele mantém o "túnel" de áudio aberto com o sistema operacional.
+// Audio fix: Mantém o canal de áudio aberto
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -72,7 +71,6 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        // Garante que o audioFix está rodando sempre que a música toca
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
@@ -84,8 +82,6 @@ if (widget) {
     if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
-    // IMPORTANTE: NÃO pausamos o audioFix aqui. 
-    // Se pausarmos ele, a tela de bloqueio "morre" no iOS.
   });
 }
 
@@ -105,20 +101,16 @@ function togglePlayback() {
 }
 
 function carregarConteudo(urlPersonalizada) {
+  audioFix.play().catch(() => {});
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
-    
-    // "Aquece" o canal de áudio
-    audioFix.play().catch(() => {});
-
     widget.load(url, {
       auto_play: true,
       show_artwork: false,
       callback: () => {
-        // Pequeno delay para o iOS processar a troca de fonte
         setTimeout(() => {
           widget.play();
           widget.getSounds((sounds) => {
@@ -127,44 +119,43 @@ function carregarConteudo(urlPersonalizada) {
               updatePlaylistUI();
             }
           });
-        }, 500);
+        }, 800);
       }
     });
   }
 }
 
+// CORREÇÃO DOS BOTÕES SUMIDOS NA TELA DE BLOQUEIO
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
+    
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
-      artist: "CloudCast Player",
-      album: "SoundCloud",
-      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
+      artist: "CloudCast",
+      album: "Original Music",
+      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    // Handlers para os botões da tela de bloqueio
-    navigator.mediaSession.setActionHandler("play", () => {
-        // Quando o usuário clica em play na tela de bloqueio, 
-        // damos um "kick" no audioFix antes do widget.
-        audioFix.play().catch(() => {});
-        widget.play();
-    });
-    
-    navigator.mediaSession.setActionHandler("pause", () => {
-        widget.pause();
-        // Não pausamos o audioFix para não perder o foco do sistema
-    });
+    // Registrar handlers explicitamente para forçar os botões a aparecerem
+    const actionHandlers = [
+      ['play', () => { audioFix.play().catch(() => {}); widget.play(); }],
+      ['pause', () => { widget.pause(); }],
+      ['previoustrack', () => { audioFix.play().catch(() => {}); widget.prev(); }],
+      ['nexttrack', () => { audioFix.play().catch(() => {}); widget.next(); }]
+    ];
 
-    navigator.mediaSession.setActionHandler("previoustrack", () => {
-        audioFix.play().catch(() => {});
-        widget.prev();
-    });
+    for (const [action, handler] of actionHandlers) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (error) {
+        console.log(`O handler ${action} não é suportado.`);
+      }
+    }
 
-    navigator.mediaSession.setActionHandler("nexttrack", () => {
-        audioFix.play().catch(() => {});
-        widget.next();
-    });
+    // Desabilitar Seek (pular segundos) para garantir que apareça o ícone de Próxima/Anterior
+    navigator.mediaSession.setActionHandler('seekbackward', null);
+    navigator.mediaSession.setActionHandler('seekforward', null);
   }
 }
 
@@ -217,6 +208,6 @@ function initAlbuns() {
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => widget.next();
-  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => widget.prev();
+  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
+  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
 });
