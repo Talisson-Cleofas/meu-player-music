@@ -9,6 +9,7 @@ body {
     display: flex;
     justify-content: center;
     overflow: hidden;
+    color: white;
 }
 /* --- SPLASH SCREEN --- */
 #splash-screen {
@@ -425,4 +426,39 @@ li:hover {
     color: #4786ff !important;
     border-color: #4786ff !important;
     transform: scale(1.1);
+}
+/* --- EQUALIZADOR NA LISTA (BARRINHAS MEXENDO) --- */
+.now-playing-equalizer {
+    display: flex !important;
+    align-items: flex-end;
+    justify-content: space-between;
+    width: 16px;
+    height: 14px;
+    margin-left: 10px;
+    flex-shrink: 0;
+}
+
+.now-playing-equalizer span {
+    display: block !important;
+    width: 3px !important;
+    background-color: #4786ff !important; /* Cor azul neon das barras */
+    border-radius: 1px;
+    animation: bounce 0.5s ease-in-out infinite alternate;
+}
+
+/* Tempos diferentes para cada barra para parecer real */
+.now-playing-equalizer span:nth-child(1) { height: 100%; animation-duration: 0.4s; }
+.now-playing-equalizer span:nth-child(2) { height: 60%; animation-duration: 0.2s; }
+.now-playing-equalizer span:nth-child(3) { height: 80%; animation-duration: 0.3s; }
+
+@keyframes bounce {
+    from { height: 3px; }
+    to { height: 100%; }
+}
+li.active-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(110, 60, 255, 0.2) !important;
+    color: #4786ff !important;
 }

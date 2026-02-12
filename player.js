@@ -185,8 +185,21 @@ function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach((li) => {
     const nameElem = li.querySelector(".track-name");
-    if (nameElem) {
-      li.classList.toggle("active-track", nameElem.innerText === currentTitle);
+    const isCurrent = nameElem && nameElem.innerText === currentTitle;
+
+    // Remove a classe e o equalizador de todos primeiro
+    li.classList.remove("active-track");
+    const existingEqualizer = li.querySelector(".now-playing-equalizer");
+    if (existingEqualizer) existingEqualizer.remove();
+
+    if (isCurrent) {
+      li.classList.add("active-track");
+
+      // Cria e injeta o HTML das barrinhas
+      const eq = document.createElement("div");
+      eq.className = "now-playing-equalizer";
+      eq.innerHTML = "<span></span><span></span><span></span>";
+      li.appendChild(eq);
     }
   });
 }
