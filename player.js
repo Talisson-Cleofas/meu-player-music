@@ -4,7 +4,7 @@ const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 
-// Audio fix para manter o player vivo em background (Crucial para iOS)
+// Audio fix para manter o player vivo em background
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -71,8 +71,8 @@ if (widget) {
         document.getElementById("status").innerText = sound.title;
         document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
-        // Só damos play no audioFix se ele estiver pausado, para não interromper o canal
-        if (audioFix.paused) audioFix.play().catch(() => {});
+        // Toca o audioFix para garantir o background no iOS
+        audioFix.play().catch(() => {});
         applyMediaSession(sound);
       }
     });
@@ -89,10 +89,8 @@ if (widget) {
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
-
   widget.isPaused((paused) => {
     if (paused) {
-      // No play manual, garantimos que o áudio local "acorde"
       audioFix.play().catch(() => {});
       widget.play();
     } else {
@@ -103,33 +101,31 @@ function togglePlayback() {
 }
 
 function carregarConteudo(urlPersonalizada) {
-  // 1. "Aquece" o canal de áudio do iOS imediatamente com o clique
-  audioFix.play().catch(() => {});
-  
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
   
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
     
-    // 2. Carrega SEM autoplay primeiro para evitar o choque de canais no iOS
+    // NO iOS: Ativamos o áudio fix imediatamente
+    audioFix.play().catch(() => {});
+
+    // Carregamos com auto_play: true e SEM callback complexo inicial
     widget.load(url, {
-      auto_play: false, 
+      auto_play: true,
       show_artwork: false,
       callback: () => {
-        // 3. Espera o Widget estabilizar e então ordena o Play
-        setTimeout(() => {
-          widget.play();
-          
-          widget.getSounds((sounds) => {
-            if (sounds) {
-              playlist = sounds.map((s) => ({ title: s.title }));
-              updatePlaylistUI();
-              widget.setLoop(isRepeating);
-            }
-          });
-        }, 800); // Delay estratégico para o iOS
-      },
+        // Forçamos o play imediato para evitar o "pause" de segurança do Safari
+        widget.play();
+        
+        // Carrega a playlist em paralelo
+        widget.getSounds((sounds) => {
+          if (sounds) {
+            playlist = sounds.map((s) => ({ title: s.title }));
+            updatePlaylistUI();
+          }
+        });
+      }
     });
   }
 }
@@ -148,10 +144,7 @@ function initAlbuns() {
 
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    const artwork = sound.artwork_url
-      ? sound.artwork_url.replace("-large", "-t500x500")
-      : "";
-
+    const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "CloudCast Player",
@@ -163,17 +156,9 @@ function applyMediaSession(sound) {
         audioFix.play().catch(() => {});
         widget.play();
     });
-    navigator.mediaSession.setActionHandler("pause", () => {
-        widget.pause();
-    });
-    
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
     navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
-
-    try {
-        navigator.mediaSession.setActionHandler("seekbackward", null);
-        navigator.mediaSession.setActionHandler("seekforward", null);
-    } catch (e) {}
   }
 }
 
@@ -197,10 +182,9 @@ function updateActiveTrackVisual(currentTitle) {
   items.forEach((li) => {
     const nameElem = li.querySelector(".track-name");
     const isCurrent = nameElem && nameElem.innerText === currentTitle;
-
     li.classList.remove("active-track");
-    const existingEqualizer = li.querySelector(".now-playing-equalizer");
-    if (existingEqualizer) existingEqualizer.remove();
+    const existingEq = li.querySelector(".now-playing-equalizer");
+    if (existingEq) existingEq.remove();
 
     if (isCurrent) {
       li.classList.add("active-track");
@@ -215,16 +199,7 @@ function updateActiveTrackVisual(currentTitle) {
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
-  if (document.getElementById("btnLoad"))
-    document.getElementById("btnLoad").onclick = () => carregarConteudo();
-  if (document.getElementById("btnNext"))
-    document.getElementById("btnNext").onclick = () => {
-        audioFix.play().catch(() => {});
-        widget.next();
-    };
-  if (document.getElementById("btnPrev"))
-    document.getElementById("btnPrev").onclick = () => {
-        audioFix.play().catch(() => {});
-        widget.prev();
-    };
+  if (document.getElementById("btnLoad")) document.getElementById("btnLoad").onclick = () => carregarConteudo();
+  if (document.getElementById("btnNext")) document.getElementById("btnNext").onclick = () => widget.next();
+  if (document.getElementById("btnPrev")) document.getElementById("btnPrev").onclick = () => widget.prev();
 });
