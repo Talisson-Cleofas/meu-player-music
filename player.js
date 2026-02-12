@@ -3,9 +3,8 @@ const widgetIframe = document.getElementById("sc-widget");
 const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
-const btnRepeat = document.getElementById("btnRepeat");
 
-// Audio fix para manter o player vivo em background
+// Audio fix para manter o player vivo em background (Importante para Mobile)
 const audioFix = new Audio(
   "https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3",
 );
@@ -15,14 +14,13 @@ let playlist = [];
 let isProcessing = false;
 let isRepeating = true; // Loop ativado por padrão
 
-// 2. FUNÇÃO SPLASH
+// 2. FUNÇÃO SPLASH (Esconde a tela de carregamento)
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (splash) {
     splash.style.opacity = "0";
     setTimeout(() => {
       splash.style.display = "none";
-      console.log("Splash removida.");
     }, 600);
   }
 }
@@ -30,57 +28,31 @@ setTimeout(hideSplash, 2500);
 
 // --- BIBLIOTECA DE ÁLBUNS ---
 const meusAlbuns = [
-  {
-    nome: "Efeito Atomiko",
-    url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no",
-  },
-  {
-    nome: "Camp Fire",
-    url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo",
-  },
+  { nome: "Efeito Atomiko", url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no" },
+  { nome: "Camp Fire", url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo" },
   { nome: "Rahamim", url: "https://soundcloud.com/colodedeus/sets/rahamim-4" },
-  {
-    nome: "AD10",
-    url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1",
-  },
+  { nome: "AD10", url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1" },
   { nome: "Secreto", url: "https://soundcloud.com/colodedeus/sets/secreto-33" },
   { nome: "Deserto", url: "https://soundcloud.com/colodedeus/sets/deserto-5" },
-  {
-    nome: "Intimidade",
-    url: "https://soundcloud.com/colodedeus/sets/intimidade-28",
-  },
+  { nome: "Intimidade", url: "https://soundcloud.com/colodedeus/sets/intimidade-28" },
   { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
   { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
-  {
-    nome: "Cordeiro 1",
-    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao",
-  },
-  {
-    nome: "Cordeiro 2",
-    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao",
-  },
-  {
-    nome: "Cordeiro 3",
-    url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4",
-  },
-  {
-    nome: "Casa de Maria",
-    url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria",
-  },
+  { nome: "Cordeiro 1", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao" },
+  { nome: "Cordeiro 2", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao" },
+  { nome: "Cordeiro 3", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4" },
+  { nome: "Casa de Maria", url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria" },
 ];
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
-  // LÓGICA DE LOOP UNIVERSAL (Resolve Android/Chrome)
+  // LÓGICA DE LOOP E PRÓXIMA MÚSICA
   widget.bind(SC.Widget.Events.FINISH, () => {
     if (isRepeating) {
       widget.getCurrentSoundIndex((index) => {
         widget.getSounds((sounds) => {
           if (sounds && index === sounds.length - 1) {
-            // Se for a última música, volta para a primeira
             widget.skip(0);
           } else {
-            // Senão, vai para a próxima
             widget.next();
           }
           widget.play();
@@ -89,8 +61,15 @@ if (widget) {
     }
   });
 
+  // EVENTO AO DAR PLAY
   widget.bind(SC.Widget.Events.PLAY, () => {
     if (playIcon) playIcon.className = "fas fa-pause";
+    
+    // Atualiza estado global para o sistema (Mobile)
+    if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+    }
+
     widget.getCurrentSound((sound) => {
       if (sound) {
         document.getElementById("status").innerText = sound.title;
@@ -102,8 +81,13 @@ if (widget) {
     });
   });
 
+  // EVENTO AO PAUSAR
   widget.bind(SC.Widget.Events.PAUSE, () => {
     if (playIcon) playIcon.className = "fas fa-play";
+    
+    if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+    }
     audioFix.pause();
   });
 }
@@ -152,20 +136,33 @@ function initAlbuns() {
   });
 }
 
+// CONFIGURAÇÃO DA TELA DE BLOQUEIO (MEDIA SESSION)
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url
       ? sound.artwork_url.replace("-large", "-t500x500")
       : "";
+
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
-      artist: sound.user.username,
+      artist: "CloudCast Player",
+      album: "SoundCloud",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
     });
+
+    // Handlers para os botões da tela de bloqueio
+    navigator.mediaSession.setActionHandler("play", () => widget.play());
+    navigator.mediaSession.setActionHandler("pause", () => widget.pause());
+    
+    // Força botões de Anterior/Próximo (em vez de pular 10s)
+    navigator.mediaSession.setActionHandler("previoustrack", () => widget.prev());
     navigator.mediaSession.setActionHandler("nexttrack", () => widget.next());
-    navigator.mediaSession.setActionHandler("previoustrack", () =>
-      widget.prev(),
-    );
+
+    // Desabilita explicitamente a busca por segundos para evitar ícones de 10s
+    try {
+        navigator.mediaSession.setActionHandler("seekbackward", null);
+        navigator.mediaSession.setActionHandler("seekforward", null);
+    } catch (e) {}
   }
 }
 
@@ -181,21 +178,21 @@ function updatePlaylistUI() {
   });
 }
 
+// ATUALIZA VISUAL DA FAIXA E INJETA AS BARRINHAS ANIMADAS
 function updateActiveTrackVisual(currentTitle) {
   const items = document.querySelectorAll("#playlistView li");
   items.forEach((li) => {
     const nameElem = li.querySelector(".track-name");
     const isCurrent = nameElem && nameElem.innerText === currentTitle;
 
-    // Remove a classe e o equalizador de todos primeiro
     li.classList.remove("active-track");
     const existingEqualizer = li.querySelector(".now-playing-equalizer");
     if (existingEqualizer) existingEqualizer.remove();
 
     if (isCurrent) {
       li.classList.add("active-track");
-
-      // Cria e injeta o HTML das barrinhas
+      
+      // Injeta o HTML das 3 barrinhas para o CSS animar
       const eq = document.createElement("div");
       eq.className = "now-playing-equalizer";
       eq.innerHTML = "<span></span><span></span><span></span>";
@@ -204,7 +201,7 @@ function updateActiveTrackVisual(currentTitle) {
   });
 }
 
-// Inicialização
+// Inicialização Geral
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
