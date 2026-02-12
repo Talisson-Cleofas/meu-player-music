@@ -3,20 +3,38 @@ body {
     background-color: #0d0d0d; /* Um pouco mais escuro para destacar o neon */
     color: white;
     font-family: 'Segoe UI', Tahoma, sans-serif;
-    display: flex; 
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
     margin: 0;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Impede o scroll na página inteira */
+}
+/* O player-card agora se comporta como a tela principal do app */
+.player-card {
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Ocupa a tela cheia */
+    width: 100%;
+    max-width: 450px; /* Largura máxima para desktop */
+    margin: 0 auto;
+    text-align: center;
+    box-sizing: border-box;
+    position: relative;
 }
 
 /* Adicione a Logo no HTML acima do player-card ou dentro dele */
 .logo-container {
-    margin-bottom: 1.5rem;
+    padding: 20px 0 10px 0;
+    flex-shrink: 0; /* Impede a logo de diminuir */
+    background: #1a1a1a;
+    z-index: 10;
+    border-bottom: 1px solid #282828;
 }
 
 .logo-container img {
-    width: 120px; /* Ajuste o tamanho conforme necessário */
+    width: 100px;
     filter: drop-shadow(0 0 10px rgba(110, 60, 255, 0.5));
 }
 
@@ -280,70 +298,19 @@ li:hover {
     border-color: #4786ff !important;
     transform: scale(1.1);
 }
-/* --- SPLASH SCREEN STYLES --- */
-#splash-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: #0d0d0d;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  transition: opacity 0.8s ease, visibility 0.8s;
+/* Crie uma div no HTML chamada 'scroll-area' e coloque os inputs, álbuns e playlist dentro dela */
+.scroll-area {
+    flex-grow: 1; /* Ocupa todo o espaço restante */
+    overflow-y: auto; /* Ativa o scroll vertical */
+    padding: 0 2rem 2rem 2rem;
+    -webkit-overflow-scrolling: touch; /* Scroll suave no iOS */
 }
 
-.splash-content {
-  text-align: center;
+/* Customizando a barra de scroll para ficar discreta */
+.scroll-area::-webkit-scrollbar {
+    width: 4px;
 }
-
-.loading-text {
-  color: white;
-  margin-top: 20px;
-  font-family: 'Segoe UI', sans-serif;
-  letter-spacing: 2px;
-  font-size: 0.9rem;
-  opacity: 0.7;
-}
-
-/* Linha de carregamento animada */
-.loader-line {
-  width: 100px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 20px auto;
-  position: relative;
-  overflow: hidden;
-  border-radius: 3px;
-}
-
-.loader-line::after {
-  content: '';
-  position: absolute;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, #00f2ff, transparent);
-  animation: loadingBar 1.5s infinite;
-}
-
-@keyframes loadingBar {
-  100% { left: 100%; }
-}
-
-.bar-pulse {
-  animation: pulse 1s infinite alternate;
-}
-
-@keyframes pulse {
-  from { opacity: 0.5; height: 100px; y: 220; }
-  to { opacity: 1; height: 150px; y: 195; }
-}
-
-/* Classe para esconder a splash */
-.splash-hidden {
-  opacity: 0;
-  visibility: hidden;
+.scroll-area::-webkit-scrollbar-thumb {
+    background: #6e3cff;
+    border-radius: 10px;
 }
