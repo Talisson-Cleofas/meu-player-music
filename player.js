@@ -296,6 +296,7 @@ function atualizarPlaylistVisual() {
         });
     });
 }
+
 // ==========================================
 // 8. REGISTRO DO APP (No final do arquivo)
 // ==========================================
@@ -315,3 +316,4 @@ if(btnLoad) {
         if(url) carregarAlbum(url);
     };
 }
+
