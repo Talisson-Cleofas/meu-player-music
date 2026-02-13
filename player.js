@@ -10,6 +10,8 @@ const statusDisplay = document.getElementById("status");
 const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
+const btnNext = document.getElementById('btnNext');
+const btnPrev = document.getElementById('btnPrev');
 
 let isDragging = false;
 
@@ -19,23 +21,18 @@ audioFix.loop = true;
 audioFix.volume = 0.01;
 
 // ==========================================
-// 2. TELA SPLASH (FORÇADA PARA SUMIR)
+// 2. TELA SPLASH
 // ==========================================
 function gerenciarSplash() {
     const splash = document.getElementById("splash-screen");
     if (splash) {
-        console.log("Iniciando contagem do Splash...");
         setTimeout(() => {
             splash.style.transition = "opacity 0.6s ease";
             splash.style.opacity = "0";
-            setTimeout(() => {
-                splash.style.display = "none";
-                console.log("Splash removido.");
-            }, 600);
+            setTimeout(() => { splash.style.display = "none"; }, 600);
         }, 2500);
     }
 }
-// Chamada imediata
 gerenciarSplash();
 
 // ==========================================
@@ -101,8 +98,19 @@ function desenharBotoes() {
 }
 desenharBotoes();
 
-// Play/Pause Principal
-btnTogglePlay.onclick = () => {
+// --- FUNÇÕES DE CONTROLE UNIFICADAS ---
+
+function destacarBotao(botaoId) {
+    const btn = document.getElementById(botaoId);
+    if (!btn) return;
+    btn.classList.add('btn-highlight');
+    setTimeout(() => btn.classList.remove('btn-highlight'), 400);
+}
+
+// Botão Play/Pause unificado
+btnTogglePlay.onclick = (e) => {
+    e.preventDefault();
+    destacarBotao('btnTogglePlay');
     widget.isPaused((paused) => {
         if (paused) {
             audioFix.play().catch(() => {});
@@ -114,46 +122,34 @@ btnTogglePlay.onclick = () => {
         }
     });
 };
-// Função para dar o destaque visual nos botões
-function destacarBotao(botaoId) {
-    const btn = document.getElementById(botaoId);
-    if (!btn) return;
 
-    btn.classList.add('btn-highlight');
-    
-    // Remove a classe após 400ms (tempo da animação)
-    setTimeout(() => {
-        btn.classList.remove('btn-highlight');
-    }, 400);
-}
-
-// --- INTEGRAÇÃO COM SEUS EVENTOS EXISTENTES ---
-
-// No botão Anterior
-document.getElementById('btnPrev').addEventListener('click', () => {
-    widget.prev();
+// Botão Anterior unificado
+btnPrev.onclick = (e) => {
+    e.preventDefault();
     destacarBotao('btnPrev');
-});
+    audioFix.play().catch(() => {});
+    widget.prev();
+};
 
-// No botão Próximo
-document.getElementById('btnNext').addEventListener('click', () => {
-    widget.next();
+// Botão Próximo unificado
+btnNext.onclick = (e) => {
+    e.preventDefault();
     destacarBotao('btnNext');
-});
+    audioFix.play().catch(() => {});
+    widget.next();
+};
 
-// No botão Play/Pause (opcional, mas fica legal)
-document.getElementById('btnTogglePlay').addEventListener('click', () => {
-    destacarBotao('btnTogglePlay');
-    // ... seu código de play/pause atual
-});
+// ==========================================
+// 5. EVENTOS DO WIDGET (MONITORAMENTO)
+// ==========================================
 
-// Monitoramento de música e Título
 widget.bind(SC.Widget.Events.PLAY, () => {
     widget.getCurrentSound((sound) => {
         if (sound) {
             statusDisplay.innerText = sound.title;
             document.title = "▶ " + sound.title;
             atualizarMediaSession(sound);
+            atualizarPlaylistVisual(); 
         }
     });
     if (playIcon) playIcon.className = "fas fa-pause";
@@ -196,11 +192,7 @@ if (progressSlider) {
     };
 }
 
-// Navegação
-document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
-document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
-
-// Fim da música (Loop do álbum)
+// Loop do álbum
 widget.bind(SC.Widget.Events.FINISH, () => {
     widget.getSounds((sounds) => {
         widget.getCurrentSoundIndex((index) => {
@@ -212,7 +204,7 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 });
 
 // ==========================================
-// 5. TELA DE BLOQUEIO (MediaSession)
+// 6. TELA DE BLOQUEIO (MediaSession)
 // ==========================================
 function atualizarMediaSession(sound) {
     if ('mediaSession' in navigator) {
@@ -228,13 +220,11 @@ function atualizarMediaSession(sound) {
         navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
         navigator.mediaSession.setActionHandler('previoustrack', () => { widget.prev(); });
         navigator.mediaSession.setActionHandler('nexttrack', () => { widget.next(); });
-        navigator.mediaSession.setActionHandler('seekbackward', null);
-        navigator.mediaSession.setActionHandler('seekforward', null);
     }
 }
 
 // ==========================================
-// 6. LITA DE MUSICAS DO ÁLBUM
+// 7. LISTA VISUAL (PLAYLIST)
 // ==========================================
 function atualizarPlaylistVisual() {
     const playlistView = document.getElementById("playlistView");
@@ -242,41 +232,27 @@ function atualizarPlaylistVisual() {
 
     widget.getSounds((sounds) => {
         widget.getCurrentSoundIndex((currentIndex) => {
-            playlistView.innerHTML = ""; // Limpa a lista
-
+            playlistView.innerHTML = ""; 
             sounds.forEach((sound, index) => {
                 const li = document.createElement("li");
-                
-                // 1. Destaque da música ativa
                 if (index === currentIndex) {
-                    li.className = "active-track"; // Usa a classe que está no seu CSS
+                    li.className = "active-track";
                 }
 
-                // Conteúdo da linha (Nome da música)
                 const textSpan = document.createElement("span");
                 textSpan.innerText = (index + 1) + ". " + sound.title;
                 li.appendChild(textSpan);
 
-                // 2. Adiciona as barrinhas se for a música atual
                 if (index === currentIndex) {
                     const eq = document.createElement("div");
-                    eq.className = "now-playing-equalizer"; // Classe que anima as barras
+                    eq.className = "now-playing-equalizer";
                     eq.innerHTML = "<span></span><span></span><span></span>";
                     li.appendChild(eq);
                 }
 
-                // Clique para trocar de música
-                li.onclick = () => {
-                    widget.skip(index);
-                };
-
+                li.onclick = () => { widget.skip(index); };
                 playlistView.appendChild(li);
             });
         });
     });
 }
-// ATENÇÃO: Adicione a chamada desta função dentro do seu monitorarMusica:
-widget.bind(SC.Widget.Events.PLAY, () => {
-    atualizarPlaylistVisual(); // Isso faz a lista atualizar quando a música muda
-    // ... resto do seu código de play
-});
