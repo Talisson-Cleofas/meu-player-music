@@ -1,17 +1,22 @@
-/* --- CONFIGURAÇÕES DO APP --- */
+/* ==========================================
+   1. CONFIGURAÇÕES GERAIS E BODY
+   ========================================== */
 body {
     background-color: #0d0d0d;
     margin: 0;
     padding: 0;
     height: 100vh;
     width: 100vw;
-    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     justify-content: center;
     overflow: hidden;
     color: white;
 }
-/* --- SPLASH SCREEN --- */
+
+/* ==========================================
+   2. SPLASH SCREEN
+   ========================================== */
 #splash-screen {
     position: fixed;
     top: 0;
@@ -22,7 +27,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999; /* Fica acima de tudo */
+    z-index: 9999;
     transition: opacity 0.5s ease, visibility 0.5s;
 }
 
@@ -62,25 +67,23 @@ body {
     100% { left: 100%; }
 }
 
-/* Classe para esconder o splash (usada via JS) */
-.fade-out {
-    opacity: 0;
-    visibility: hidden;
-}
+/* ==========================================
+   3. ESTRUTURA DO PLAYER (CARD)
+   ========================================== */
 .player-card {
     background: #1a1a1a;
     width: 100%;
     max-width: 450px;
-    height: 100dvh; /* Dynamic Height para Mobile */
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 0 50px rgba(0,0,0,0.9);
+    position: relative;
 }
 
 .header-app {
     flex-shrink: 0;
     background: #1a1a1a;
-    /* Protege contra o notch do iPhone */
     padding-top: calc(10px + env(safe-area-inset-top)); 
     padding-bottom: 10px;
     border-bottom: 1px solid #333;
@@ -91,7 +94,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px; /* Espaço entre a logo e o texto */
+    gap: 15px;
 }
 
 .brand-text {
@@ -117,73 +120,33 @@ body {
     margin-top: 4px;
 }
 
-/* Garante que o conteúdo role abaixo do cabeçalho fixo */
 .scroll-area {
     flex-grow: 1;
     overflow-y: auto;
     padding: 20px;
     -webkit-overflow-scrolling: touch;
 }
+
 .scroll-area::-webkit-scrollbar {
     width: 4px;
 }
+
 .scroll-area::-webkit-scrollbar-thumb {
     background: #7000ff;
     border-radius: 10px;
 }
 
-/* --- ELEMENTOS INTERNOS --- */
-.input-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
-input { padding: 12px; border-radius: 8px; border: 2px solid #333; background: #121212; color: white; outline: none; }
-input:focus { border-color: #6e3cff; }
-#btnLoad { background: white; color: black; border: none; padding: 12px; font-weight: 800; border-radius: 8px; cursor: pointer; }
-
-.album-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-.btn-album { background: #282828; color: white; border: 1px solid #444; padding: 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
-
-.controls { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px 0; }
-.btn-main { background: linear-gradient(135deg, #6e3cff, #4786ff); border: none; width: 60px; height: 60px; color: white; border-radius: 50%; font-size: 1.5rem; }
-.btn-secondary { background: transparent; border: 1px solid #444; color: #b3b3b3; border-radius: 50%; width: 45px; height: 45px; }
-
-.status-container { background: #000; padding: 12px; border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
-.status-text { color: #4786ff; font-size: 0.85rem; white-space: nowrap; animation: marquee 10s linear infinite; }
-
-@keyframes marquee { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
-
-.playlist-container { text-align: left; border-top: 1px solid #333; padding-top: 15px; }
-ul { list-style: none; padding: 0; }
-li { padding: 12px; background: #282828; margin-bottom: 8px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
-.active-track { background: rgba(110, 60, 255, 0.2) !important; color: #4786ff; font-weight: bold; }
-
-.hidden-player { position: fixed; top: -9999px; opacity: 0; }
-/* Adicione a Logo no HTML acima do player-card ou dentro dele */
-.logo-container {
-    margin-bottom: 1.5rem;
-}
-
-.logo-container img {
-    width: 120px; /* Ajuste o tamanho conforme necessário */
-    filter: drop-shadow(0 0 10px rgba(110, 60, 255, 0.5));
-}
-
-.player-card {
-    background: #1a1a1a;
-    padding: 2rem;
-    border-radius: 15px;
-    box-shadow: 0 10px 50px rgba(0,0,0,0.8), 0 0 20px rgba(85, 100, 255, 0.1);
-    text-align: center;
-    width: 380px; 
-}
-
-/* --- GRUPO DE ENTRADA --- */
+/* ==========================================
+   4. INPUTS E SELEÇÃO DE ÁLBUNS
+   ========================================== */
 .input-group {
-    margin: 20px 0;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
-input {
+input#videoUrl {
     padding: 12px;
     border-radius: 8px;
     border: 2px solid #333;
@@ -193,9 +156,8 @@ input {
     transition: border-color 0.3s;
 }
 
-input:focus {
-    /* Cor Azul/Roxo da Logo */
-    border-color: #6e3cff; 
+input#videoUrl:focus {
+    border-color: #6e3cff;
 }
 
 #btnLoad {
@@ -205,59 +167,65 @@ input:focus {
     padding: 12px;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1px;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: all 0.3s;
 }
 
 #btnLoad:hover {
-    /* Gradiente da Logo */
     background: linear-gradient(135deg, #6e3cff, #4786ff);
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(110, 60, 255, 0.4);
 }
 
-/* --- CONTROLES DE MÍDIA --- */
+.album-selector h4 {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.btn-album {
+    background: #282828;
+    color: white;
+    border: 1px solid #444;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-album:hover {
+    border-color: #6e3cff;
+    background: #333;
+}
+
+/* ==========================================
+   5. CONTROLES E BARRA DE PROGRESSO
+   ========================================== */
 .controls {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 20px;
-    margin: 25px 0;
-}
-
-.controls button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    outline: none;
+    margin: 20px 0;
 }
 
 .btn-main {
-    /* Cor Principal da Nuvem */
     background: linear-gradient(135deg, #6e3cff, #4786ff);
     border: none;
-    width: 55px;
-    height: 55px;
+    width: 60px;
+    height: 60px;
     color: white;
     border-radius: 50%;
-    transition: all 0.2s ease;
+    font-size: 1.5rem;
+    cursor: pointer;
     box-shadow: 0 0 15px rgba(110, 60, 255, 0.3);
-}
-
-.btn-main i {
-    font-size: 1.4rem;
-}
-
-.btn-main:hover {
-    transform: scale(1.1);
-    filter: brightness(1.2);
-    box-shadow: 0 0 20px rgba(71, 134, 255, 0.5);
 }
 
 .btn-secondary {
@@ -265,80 +233,100 @@ input:focus {
     border: 1px solid #444;
     color: #b3b3b3;
     border-radius: 50%;
-    width: 42px;
-    height: 42px;
-    transition: all 0.3s;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
 }
 
-.btn-secondary:hover {
-    color: #4786ff;
-    border-color: #4786ff;
+.btn-highlight {
+    animation: btnClickPulse 0.4s ease-out;
+    border-color: #00f2ff !important; /* Muda a borda para azul neon */
+    color: #00f2ff !important;
 }
 
-.btn-secondary i {
-    font-size: 1rem;
+
+.btn-main.btn-highlight {
+    filter: brightness(1.5) !important;
+    transform: scale(1.1);
 }
 
-/* Força ícones Font Awesome no Mobile */
-.controls i {
-    font-family: "Font Awesome 6 Free" !important;
-    font-weight: 900 !important;
-    font-style: normal !important;
+@keyframes btnClickPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0px rgba(0, 242, 255, 0); }
+    50% { transform: scale(0.92); box-shadow: 0 0 20px rgba(0, 242, 255, 0.6); }
+    100% { transform: scale(1); box-shadow: 0 0 0px rgba(0, 242, 255, 0); }
 }
 
-/* --- STATUS (MARQUEE) --- */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 0;
+    color: #fff;
+    font-size: 12px;
+}
+
+#progressSlider {
+    flex-grow: 1;
+    cursor: pointer;
+    accent-color: #6e3cff;
+    height: 4px;
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+/* ==========================================
+   6. STATUS E FILA DE REPRODUÇÃO
+   ========================================== */
 .status-container {
-    margin-top: 15px;
     background: #000;
     padding: 12px;
     border-radius: 8px;
     overflow: hidden;
-    position: relative;
+    margin-bottom: 20px;
     border: 1px solid #282828;
-    min-height: 1.2rem;
 }
 
 .status-text {
-    display: inline-block;
-    white-space: nowrap;
-    padding-left: 100%;
-    font-size: 0.85rem;
-    /* Azul neon vibrante */
     color: #4786ff;
-    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    display: inline-block;
+    padding-left: 100%;
     animation: marquee 12s linear infinite;
 }
 
 @keyframes marquee {
-    0% { transform: translate(0, 0); }
-    100% { transform: translate(-100%, 0); }
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
 }
 
-/* --- PLAYLIST --- */
 .playlist-container {
-    margin-top: 25px;
     text-align: left;
     border-top: 1px solid #333;
     padding-top: 15px;
+    margin-top: 10px;
 }
 
-ul {
+ul#playlistView {
     list-style: none;
     padding: 0;
-    max-height: 180px;
+    max-height: 250px;
     overflow-y: auto;
 }
 
+/* ITEM DA LISTA */
 li {
-    padding: 10px;
+    padding: 12px;
     background: #282828;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     border-radius: 6px;
     font-size: 0.85rem;
+    cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
     transition: background 0.2s;
 }
 
@@ -346,29 +334,30 @@ li:hover {
     background: #333;
 }
 
-/* Estilo para a faixa ativa */
-.active-track {
-    background: rgba(110, 60, 255, 0.15) !important;
+/* FAIXA ATIVA */
+li.active-track {
+    background: rgba(110, 60, 255, 0.2) !important;
     color: #4786ff !important;
     font-weight: bold;
+    border-left: 3px solid #6e3cff;
 }
 
-/* --- EQUALIZADOR ANIMADO --- */
+/* ==========================================
+   7. EQUALIZADOR ANIMADO (BARRINHAS)
+   ========================================== */
 .now-playing-equalizer {
-    display: flex !important;
+    display: flex;
     align-items: flex-end;
     justify-content: space-between;
     width: 16px;
     height: 14px;
-    margin-left: 10px;
     flex-shrink: 0;
 }
 
 .now-playing-equalizer span {
-    display: block !important;
-    width: 3px !important;
-    /* Gradiente nas barras */
-    background-color: #4786ff !important;
+    display: block;
+    width: 3px;
+    background-color: #4786ff;
     border-radius: 1px;
     animation: bounce 0.5s ease-in-out infinite alternate;
 }
@@ -382,7 +371,9 @@ li:hover {
     to { height: 100%; }
 }
 
-/* --- PLAYER ESCONDIDO --- */
+/* ==========================================
+   8. UTILITÁRIOS
+   ========================================== */
 .hidden-player {
     position: fixed;
     top: -9999px;
@@ -393,95 +384,7 @@ li:hover {
     pointer-events: none;
 }
 
-.album-selector {
-  margin-bottom: 20px;
-  text-align: left;
-  color: white;
+.fade-out {
+    opacity: 0 !important;
+    visibility: hidden !important;
 }
-
-.album-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.btn-album {
-  background: #282828;
-  color: #fff;
-  border: 1px solid #444;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s;
-}
-
-.btn-album:hover {
-  border-color: #6e3cff;
-  background: #333;
-}
-
-.btn-repeat-active {
-    color: #4786ff !important;
-    border-color: #4786ff !important;
-    transform: scale(1.1);
-}
-/* --- EQUALIZADOR NA LISTA (BARRINHAS MEXENDO) --- */
-.now-playing-equalizer {
-    display: flex !important;
-    align-items: flex-end;
-    justify-content: space-between;
-    width: 16px;
-    height: 14px;
-    margin-left: 10px;
-    flex-shrink: 0;
-}
-
-.now-playing-equalizer span {
-    display: block !important;
-    width: 3px !important;
-    background-color: #4786ff !important; /* Cor azul neon das barras */
-    border-radius: 1px;
-    animation: bounce 0.5s ease-in-out infinite alternate;
-}
-
-/* Tempos diferentes para cada barra para parecer real */
-.now-playing-equalizer span:nth-child(1) { height: 100%; animation-duration: 0.4s; }
-.now-playing-equalizer span:nth-child(2) { height: 60%; animation-duration: 0.2s; }
-.now-playing-equalizer span:nth-child(3) { height: 80%; animation-duration: 0.3s; }
-
-@keyframes bounce {
-    from { height: 3px; }
-    to { height: 100%; }
-}
-li.active-track {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(110, 60, 255, 0.2) !important;
-    color: #4786ff !.progress-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 20px;
-  color: #fff;
-  font-family: sans-serif;
-  font-size: 14px;
-}
-
-#progressSlider {
-  flex-grow: 1;
-  cursor: pointer;
-  accent-color: #ff5500; /* Cor clássica do SoundCloud ou use a do seu tema */
-}
-
-input[type="range"] {
-  height: 4px;
-  -webkit-appearance: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-

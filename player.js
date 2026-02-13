@@ -114,6 +114,38 @@ btnTogglePlay.onclick = () => {
         }
     });
 };
+// Função para dar o destaque visual nos botões
+function destacarBotao(botaoId) {
+    const btn = document.getElementById(botaoId);
+    if (!btn) return;
+
+    btn.classList.add('btn-highlight');
+    
+    // Remove a classe após 400ms (tempo da animação)
+    setTimeout(() => {
+        btn.classList.remove('btn-highlight');
+    }, 400);
+}
+
+// --- INTEGRAÇÃO COM SEUS EVENTOS EXISTENTES ---
+
+// No botão Anterior
+document.getElementById('btnPrev').addEventListener('click', () => {
+    widget.prev();
+    destacarBotao('btnPrev');
+});
+
+// No botão Próximo
+document.getElementById('btnNext').addEventListener('click', () => {
+    widget.next();
+    destacarBotao('btnNext');
+});
+
+// No botão Play/Pause (opcional, mas fica legal)
+document.getElementById('btnTogglePlay').addEventListener('click', () => {
+    destacarBotao('btnTogglePlay');
+    // ... seu código de play/pause atual
+});
 
 // Monitoramento de música e Título
 widget.bind(SC.Widget.Events.PLAY, () => {
@@ -200,3 +232,51 @@ function atualizarMediaSession(sound) {
         navigator.mediaSession.setActionHandler('seekforward', null);
     }
 }
+
+// ==========================================
+// 6. LITA DE MUSICAS DO ÁLBUM
+// ==========================================
+function atualizarPlaylistVisual() {
+    const playlistView = document.getElementById("playlistView");
+    if (!playlistView) return;
+
+    widget.getSounds((sounds) => {
+        widget.getCurrentSoundIndex((currentIndex) => {
+            playlistView.innerHTML = ""; // Limpa a lista
+
+            sounds.forEach((sound, index) => {
+                const li = document.createElement("li");
+                
+                // 1. Destaque da música ativa
+                if (index === currentIndex) {
+                    li.className = "active-track"; // Usa a classe que está no seu CSS
+                }
+
+                // Conteúdo da linha (Nome da música)
+                const textSpan = document.createElement("span");
+                textSpan.innerText = (index + 1) + ". " + sound.title;
+                li.appendChild(textSpan);
+
+                // 2. Adiciona as barrinhas se for a música atual
+                if (index === currentIndex) {
+                    const eq = document.createElement("div");
+                    eq.className = "now-playing-equalizer"; // Classe que anima as barras
+                    eq.innerHTML = "<span></span><span></span><span></span>";
+                    li.appendChild(eq);
+                }
+
+                // Clique para trocar de música
+                li.onclick = () => {
+                    widget.skip(index);
+                };
+
+                playlistView.appendChild(li);
+            });
+        });
+    });
+}
+// ATENÇÃO: Adicione a chamada desta função dentro do seu monitorarMusica:
+widget.bind(SC.Widget.Events.PLAY, () => {
+    atualizarPlaylistVisual(); // Isso faz a lista atualizar quando a música muda
+    // ... resto do seu código de play
+});
