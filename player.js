@@ -133,13 +133,16 @@ function destacarBotao(botaoId) {
   setTimeout(() => btn.classList.remove("btn-highlight"), 400);
 }
 
-// Botão Play/Pause
+// Botão Play/Pause - MELHORADO: Comando instantâneo
 btnTogglePlay.onclick = (e) => {
   e.preventDefault();
   destacarBotao("btnTogglePlay");
+
+  // Aciona o áudio silencioso em paralelo para não travar o widget
+  audioFix.play().catch(() => {});
+
   widget.isPaused((paused) => {
     if (paused) {
-      audioFix.play().catch(() => {});
       widget.play();
     } else {
       widget.pause();
@@ -193,20 +196,15 @@ widget.bind(SC.Widget.Events.PLAY, () => {
     }
   });
 
-  // Ativa animação das barrinhas
   const eq = document.querySelector(".now-playing-equalizer");
   if (eq) eq.classList.remove("paused");
-
   if (playIcon) playIcon.className = "fas fa-pause";
 });
 
 widget.bind(SC.Widget.Events.PAUSE, () => {
   document.title = "CloudCast Player";
-
-  // Pausa animação das barrinhas
   const eq = document.querySelector(".now-playing-equalizer");
   if (eq) eq.classList.add("paused");
-
   if (playIcon) playIcon.className = "fas fa-play";
 });
 
@@ -262,7 +260,7 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 });
 
 // ==========================================
-// 6. TELA DE BLOQUEIO
+// 6. TELA DE BLOQUEIO (MediaSession)
 // ==========================================
 function atualizarMediaSession(sound) {
   if ("mediaSession" in navigator) {
@@ -276,31 +274,22 @@ function atualizarMediaSession(sound) {
       artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // 1. Handlers de Play/Pause (CORRIGIDO PARA ANDROID)
+    // Handlers corrigidos: Comando direto para evitar delay de clique duplo
     navigator.mediaSession.setActionHandler("play", () => {
-      // O truque: dar play no áudio silencioso PRIMEIRO para retomar o foco
-      audioFix
-        .play()
-        .then(() => {
-          widget.play();
-          if (playIcon) playIcon.className = "fas fa-pause";
-        })
-        .catch((e) => console.log("Erro ao retomar áudio:", e));
+      audioFix.play().catch(() => {});
+      widget.play();
     });
 
     navigator.mediaSession.setActionHandler("pause", () => {
       widget.pause();
-      if (playIcon) playIcon.className = "fas fa-play";
-      // NÃO pausamos o audioFix aqui para ele continuar segurando a sessão
     });
+
     navigator.mediaSession.setActionHandler("previoustrack", () => {
       btnPrev.click();
     });
     navigator.mediaSession.setActionHandler("nexttrack", () => {
       btnNext.click();
     });
-    navigator.mediaSession.setActionHandler("seekbackward", null);
-    navigator.mediaSession.setActionHandler("seekforward", null);
   }
 }
 
@@ -316,9 +305,7 @@ function atualizarPlaylistVisual() {
       playlistView.innerHTML = "";
       sounds.forEach((sound, index) => {
         const li = document.createElement("li");
-        if (index === currentIndex) {
-          li.className = "active-track";
-        }
+        if (index === currentIndex) li.className = "active-track";
 
         const textSpan = document.createElement("span");
         textSpan.innerText = index + 1 + ". " + sound.title;
@@ -328,12 +315,9 @@ function atualizarPlaylistVisual() {
           const eq = document.createElement("div");
           eq.className = "now-playing-equalizer";
           eq.innerHTML = "<span></span><span></span><span></span>";
-
-          // Se estiver pausado ao criar a lista, já aplica a classe 'paused'
           widget.isPaused((paused) => {
             if (paused) eq.classList.add("paused");
           });
-
           li.appendChild(eq);
         }
 
