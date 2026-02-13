@@ -1,13 +1,17 @@
 // 1. Definições globais
 const widgetIframe = document.getElementById("sc-widget");
 const widget = widgetIframe ? SC.Widget(widgetIframe) : null;
+
+// Referências da UI
 const btnTogglePlay = document.getElementById("btnTogglePlay");
 const playIcon = document.getElementById("playIcon");
 const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
+const btnNext = document.getElementById("btnNext");
+const btnPrev = document.getElementById("btnPrev");
 
-// AUDIO FIX: Canal de áudio
+// AUDIO FIX
 const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
 audioFix.loop = true;
 audioFix.volume = 0.05;
@@ -15,37 +19,11 @@ audioFix.volume = 0.05;
 let playlist = [];
 let isProcessing = false;
 let isDragging = false;
-let isChangingTrack = false; // TRAVA para evitar pulo duplo
-
-// 2. FUNÇÃO SPLASH
-function hideSplash() {
-  const splash = document.getElementById("splash-screen");
-  if (splash) {
-    splash.style.opacity = "0";
-    setTimeout(() => { splash.style.display = "none"; }, 600);
-  }
-}
-setTimeout(hideSplash, 2500);
-
-// --- BIBLIOTECA DE ÁLBUNS ---
-const meusAlbuns = [
-  { nome: "Efeito Atomiko", url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no" },
-  { nome: "Camp Fire", url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo" },
-  { nome: "Rahamim", url: "https://soundcloud.com/colodedeus/sets/rahamim-4" },
-  { nome: "AD10", url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1" },
-  { nome: "Secreto", url: "https://soundcloud.com/colodedeus/sets/secreto-33" },
-  { nome: "Deserto", url: "https://soundcloud.com/colodedeus/sets/deserto-5" },
-  { nome: "Intimidade", url: "https://soundcloud.com/colodedeus/sets/intimidade-28" },
-  { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
-  { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
-  { nome: "Cordeiro 1", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao" },
-  { nome: "Cordeiro 2", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao" },
-  { nome: "Cordeiro 3", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4" },
-  { nome: "Casa de Maria", url: "https://soundcloud.com/colodedeus/sets/projeto-casa-de-maria" },
-];
+let isChangingTrack = false;
 
 // --- LOGICA DO PLAYER ---
 if (widget) {
+  // ATUALIZAÇÃO DA BARRA DE PROGRESSO
   widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
     if (!isDragging && progressSlider) {
       const currentPos = data.currentPosition;
@@ -62,14 +40,13 @@ if (widget) {
   });
 
   widget.bind(SC.Widget.Events.PLAY, () => {
-    isChangingTrack = false; // Libera a trava quando a música começa
+    isChangingTrack = false;
     if (playIcon) playIcon.className = "fas fa-pause";
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 
     widget.getCurrentSound((sound) => {
       if (sound) {
         document.getElementById("status").innerText = sound.title;
-        document.title = "▶ " + sound.title;
         updateActiveTrackVisual(sound.title);
         audioFix.play().catch(() => {});
         applyMediaSession(sound);
@@ -82,18 +59,15 @@ if (widget) {
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   });
 
-  // LÓGICA DE PRÓXIMA MÚSICA E REINÍCIO DO ÁLBUM
   widget.bind(SC.Widget.Events.FINISH, () => {
-    if (isChangingTrack) return; // Se já estiver mudando, ignora o segundo evento
+    if (isChangingTrack) return;
     isChangingTrack = true;
 
     widget.getSounds((sounds) => {
       widget.getCurrentSoundIndex((index) => {
         if (index === sounds.length - 1) {
-          // Chegou no fim do álbum: Volta para a primeira
           setTimeout(() => { widget.skip(0); }, 500);
         } else {
-          // Vai para a próxima
           widget.next();
         }
       });
@@ -101,16 +75,7 @@ if (widget) {
   });
 }
 
-function updatePositionState(currentMs, totalMs) {
-  if ("setPositionState" in navigator.mediaSession) {
-    navigator.mediaSession.setPositionState({
-      duration: totalMs / 1000,
-      playbackRate: 1.0,
-      position: currentMs / 1000,
-    });
-  }
-}
-
+// FORMATAR TEMPO
 function formatTime(ms) {
   if (!ms || isNaN(ms)) return "0:00";
   const totalSeconds = Math.floor(ms / 1000);
@@ -119,6 +84,19 @@ function formatTime(ms) {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 }
 
+// CONTROLE DO SLIDER (ARRASTAR)
+if (progressSlider) {
+  progressSlider.addEventListener("input", () => { isDragging = true; });
+  progressSlider.addEventListener("change", () => {
+    widget.getDuration((duration) => {
+      const seekToMs = (progressSlider.value / 100) * duration;
+      widget.seekTo(seekToMs);
+      isDragging = false;
+    });
+  });
+}
+
+// TOGGLE PLAY/PAUSE
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
@@ -128,17 +106,17 @@ function togglePlayback() {
     } else {
       widget.pause();
     }
-    setTimeout(() => (isProcessing = false), 300);
+    setTimeout(() => { isProcessing = false; }, 300);
   });
 }
 
+// CARREGAR ÁLBUM
 function carregarConteudo(urlPersonalizada) {
   audioFix.play().catch(() => {});
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
 
   if (url && url.includes("soundcloud.com") && widget) {
-    document.getElementById("status").innerText = "Sintonizando...";
     widget.load(url, {
       auto_play: true,
       show_artwork: false,
@@ -152,29 +130,35 @@ function carregarConteudo(urlPersonalizada) {
             }
           });
         }, 1200);
-      },
+      }
     });
   }
 }
 
+// MEDIA SESSION
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
-      album: "CloudCast",
       artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
-    navigator.mediaSession.setActionHandler("play", async () => {
-      await audioFix.play().catch(() => {});
-      widget.play();
-    });
-
+    navigator.mediaSession.setActionHandler("play", () => { widget.play(); });
     navigator.mediaSession.setActionHandler("pause", () => { widget.pause(); });
     navigator.mediaSession.setActionHandler("previoustrack", () => { widget.prev(); });
     navigator.mediaSession.setActionHandler("nexttrack", () => { widget.next(); });
+  }
+}
+
+function updatePositionState(currentMs, totalMs) {
+  if ("setPositionState" in navigator.mediaSession) {
+    navigator.mediaSession.setPositionState({
+      duration: totalMs / 1000,
+      playbackRate: 1.0,
+      position: currentMs / 1000,
+    });
   }
 }
 
@@ -196,55 +180,35 @@ function updateActiveTrackVisual(currentTitle) {
     const nameElem = li.querySelector(".track-name");
     const isCurrent = nameElem && nameElem.innerText === currentTitle;
     li.classList.remove("active-track");
-    const existingEq = li.querySelector(".now-playing-equalizer");
-    if (existingEq) existingEq.remove();
-    if (isCurrent) {
-      li.classList.add("active-track");
-      const eq = document.createElement("div");
-      eq.className = "now-playing-equalizer";
-      eq.innerHTML = "<span></span><span></span><span></span>";
-      li.appendChild(eq);
-    }
+    if (isCurrent) li.classList.add("active-track");
   });
 }
 
-function initAlbuns() {
-  const container = document.getElementById("albumButtons");
-  if (!container) return;
-  container.innerHTML = "";
-  meusAlbuns.forEach((album) => {
-    const btn = document.createElement("button");
-    btn.className = "btn-album";
-    btn.innerText = album.nome;
-    btn.onclick = () => carregarConteudo(album.url);
-    container.appendChild(btn);
-  });
-}
-
-// RESTAURAÇÃO DOS BOTÕES E CLIQUES
+// INICIALIZAÇÃO
 document.addEventListener("DOMContentLoaded", () => {
-  initAlbuns();
-  
+  // Configurar botões de álbuns
+  const albumContainer = document.getElementById("albumButtons");
+  if (albumContainer) {
+    meusAlbuns.forEach((album) => {
+      const btn = document.createElement("button");
+      btn.className = "btn-album";
+      btn.innerText = album.nome;
+      btn.onclick = () => carregarConteudo(album.url);
+      albumContainer.appendChild(btn);
+    });
+  }
+
+  // Binds de eventos
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
+  if (btnNext) btnNext.onclick = () => widget.next();
+  if (btnPrev) btnPrev.onclick = () => widget.prev();
   
   const btnLoad = document.getElementById("btnLoad");
   if (btnLoad) btnLoad.onclick = () => carregarConteudo();
 
-  // IDs corrigidos conforme o seu HTML
-  const btnNext = document.getElementById("btnNext");
-  const btnPrev = document.getElementById("btnPrev");
-
-  if (btnNext) {
-    btnNext.onclick = () => {
-      audioFix.play().catch(() => {});
-      widget.next();
-    };
-  }
-
-  if (btnPrev) {
-    btnPrev.onclick = () => {
-      audioFix.play().catch(() => {});
-      widget.prev();
-    };
-  }
+  // Esconder splash
+  setTimeout(() => {
+    const splash = document.getElementById("splash-screen");
+    if (splash) splash.style.display = "none";
+  }, 2500);
 });
