@@ -1,3 +1,4 @@
+
 // 1. Pegamos os elementos do seu HTML pelos IDs
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe); // Ativa a API do SoundCloud no seu Iframe
@@ -72,16 +73,10 @@ function togglePlayback() {
 btnTogglePlay.onclick = togglePlayback;
 
 // 1. Sua lista de álbuns (exatamente como você tinha)
-const meusAlbuns = [
-  { nome: "Efeito Atomiko", url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no" },
-  { nome: "Camp Fire", url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo" },
-  { nome: "Rahamim", url: "https://soundcloud.com/colodedeus/sets/rahamim-4" },
-  { nome: "AD10", url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1" },
-  { nome: "Secreto", url: "https://soundcloud.com/colodedeus/sets/secreto-33" },
-  { nome: "Deserto", url: "https://soundcloud.com/colodedeus/sets/deserto-5" },
-  { nome: "Intimidade", url: "https://soundcloud.com/colodedeus/sets/intimidade-28" },
-  { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
-  { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
+
+// --- BIBLIOTECA DE ÁLBUNS ---
+
+
   { nome: "Cordeiro 1", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao" },
   { nome: "Cordeiro 2", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao" },
   { nome: "Cordeiro 3", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4" },
@@ -119,6 +114,7 @@ function carregarAlbum(url) {
         if (sound) {
           statusDisplay.innerText = sound.title;
         }
+
       });
     }, 1000);
     
@@ -126,6 +122,7 @@ function carregarAlbum(url) {
     widget.unbind(SC.Widget.Events.READY);
   });
 }
+
 
 // 3. Função que desenha os botões na tela
 function desenharBotoes() {
@@ -159,6 +156,7 @@ function monitorarMusica() {
     // Pedimos ao Widget as informações da música atual (Sound Object)
     widget.getCurrentSound((sound) => {
       if (sound) {
+
         // 1. Atualiza o texto na sua tela (o ID 'status')
         statusDisplay.innerText = sound.title;
         
@@ -167,6 +165,7 @@ function monitorarMusica() {
         document.title = "▶ " + sound.title;
         
         console.log("Tocando agora: " + sound.title);
+
       }
     });
     
@@ -178,6 +177,7 @@ function monitorarMusica() {
   widget.bind(SC.Widget.Events.PAUSE, () => {
     document.title = "CloudCast Player"; // Volta ao nome original
     if (playIcon) playIcon.className = "fas fa-play";
+
   });
 }
 
@@ -226,6 +226,7 @@ widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
     });
   }
 });
+
 
   // 3. Permitir que o usuário "arraste" a música
   if (progressSlider) {
