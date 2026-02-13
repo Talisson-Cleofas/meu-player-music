@@ -7,7 +7,7 @@ const progressSlider = document.getElementById("progressSlider");
 const currentTimeDisplay = document.getElementById("currentTime");
 const totalDurationDisplay = document.getElementById("totalDuration");
 
-// AUDIO FIX: Mantém o canal de áudio aberto no Android
+// AUDIO FIX: Canal de áudio
 const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
 audioFix.loop = true;
 audioFix.volume = 0.05;
@@ -15,6 +15,7 @@ audioFix.volume = 0.05;
 let playlist = [];
 let isProcessing = false;
 let isDragging = false;
+let isChangingTrack = false; // TRAVA para evitar pulo duplo
 
 // 2. FUNÇÃO SPLASH
 function hideSplash() {
@@ -61,6 +62,7 @@ if (widget) {
   });
 
   widget.bind(SC.Widget.Events.PLAY, () => {
+    isChangingTrack = false; // Libera a trava quando a música começa
     if (playIcon) playIcon.className = "fas fa-pause";
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 
@@ -80,15 +82,18 @@ if (widget) {
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   });
 
-  // CORREÇÃO: Lógica de próximo e loop do álbum
+  // LÓGICA DE PRÓXIMA MÚSICA E REINÍCIO DO ÁLBUM
   widget.bind(SC.Widget.Events.FINISH, () => {
+    if (isChangingTrack) return; // Se já estiver mudando, ignora o segundo evento
+    isChangingTrack = true;
+
     widget.getSounds((sounds) => {
       widget.getCurrentSoundIndex((index) => {
         if (index === sounds.length - 1) {
-          // Se for a última música, volta para a primeira (0)
-          widget.skip(0);
+          // Chegou no fim do álbum: Volta para a primeira
+          setTimeout(() => { widget.skip(0); }, 500);
         } else {
-          // Senão, vai para a próxima
+          // Vai para a próxima
           widget.next();
         }
       });
@@ -117,7 +122,6 @@ function formatTime(ms) {
 function togglePlayback() {
   if (isProcessing || !widget) return;
   isProcessing = true;
-
   widget.isPaused((paused) => {
     if (paused) {
       audioFix.play().then(() => { widget.play(); }).catch(() => widget.play());
@@ -129,28 +133,25 @@ function togglePlayback() {
 }
 
 function carregarConteudo(urlPersonalizada) {
-  // Ativa o áudio no clique do botão (exigência do navegador)
   audioFix.play().catch(() => {});
-  
   const urlInput = document.getElementById("videoUrl");
   let url = urlPersonalizada || (urlInput ? urlInput.value.trim() : "");
 
   if (url && url.includes("soundcloud.com") && widget) {
     document.getElementById("status").innerText = "Sintonizando...";
     widget.load(url, {
-      auto_play: true, // Tenta o autoplay, mas o widget.play() abaixo garante
+      auto_play: true,
       show_artwork: false,
       callback: () => {
-        // Pequeno delay para o SoundCloud processar o carregamento
         setTimeout(() => {
-          widget.play(); 
+          widget.play();
           widget.getSounds((sounds) => {
             if (sounds) {
               playlist = sounds.map((s) => ({ title: s.title }));
               updatePlaylistUI();
             }
           });
-        }, 1000);
+        }, 1200);
       },
     });
   }
@@ -159,36 +160,21 @@ function carregarConteudo(urlPersonalizada) {
 function applyMediaSession(sound) {
   if ("mediaSession" in navigator) {
     const artwork = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
-
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
       album: "CloudCast",
-      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }],
+      artwork: [{ src: artwork, sizes: "500x500", type: "image/jpg" }]
     });
 
     navigator.mediaSession.setActionHandler("play", async () => {
-      audioFix.currentTime = 0;
-      try {
-        await audioFix.play();
-        widget.play();
-        navigator.mediaSession.playbackState = "playing";
-      } catch (err) {
-        widget.play();
-      }
+      await audioFix.play().catch(() => {});
+      widget.play();
     });
 
-    navigator.mediaSession.setActionHandler("pause", () => {
-      widget.pause();
-      navigator.mediaSession.playbackState = "paused";
-    });
-
+    navigator.mediaSession.setActionHandler("pause", () => { widget.pause(); });
     navigator.mediaSession.setActionHandler("previoustrack", () => { widget.prev(); });
     navigator.mediaSession.setActionHandler("nexttrack", () => { widget.next(); });
-    
-    navigator.mediaSession.setActionHandler("seekto", (details) => {
-      if (details.seekTime) widget.seekTo(details.seekTime * 1000);
-    });
   }
 }
 
@@ -199,10 +185,7 @@ function updatePlaylistUI() {
   playlist.forEach((item, index) => {
     const li = document.createElement("li");
     li.innerHTML = `<span class="track-num">${(index + 1).toString().padStart(2, "0")}</span><span class="track-name">${item.title}</span>`;
-    li.onclick = () => { 
-        audioFix.play().catch(() => {});
-        widget.skip(index); 
-    };
+    li.onclick = () => { widget.skip(index); };
     listElement.appendChild(li);
   });
 }
@@ -228,7 +211,7 @@ function updateActiveTrackVisual(currentTitle) {
 function initAlbuns() {
   const container = document.getElementById("albumButtons");
   if (!container) return;
-  container.innerHTML = ""; // Limpa antes de renderizar
+  container.innerHTML = "";
   meusAlbuns.forEach((album) => {
     const btn = document.createElement("button");
     btn.className = "btn-album";
@@ -238,16 +221,30 @@ function initAlbuns() {
   });
 }
 
+// RESTAURAÇÃO DOS BOTÕES E CLIQUES
 document.addEventListener("DOMContentLoaded", () => {
   initAlbuns();
+  
   if (btnTogglePlay) btnTogglePlay.onclick = togglePlayback;
   
-  // Botão carregar manual
   const btnLoad = document.getElementById("btnLoad");
   if (btnLoad) btnLoad.onclick = () => carregarConteudo();
 
-  if (document.getElementById("btnNext"))
-    document.getElementById("btnNext").onclick = () => { audioFix.play().catch(() => {}); widget.next(); };
-  if (document.getElementById("btnPrev"))
-    document.getElementById("btnPrev").onclick = () => { audioFix.play().catch(() => {}); widget.prev(); };
+  // IDs corrigidos conforme o seu HTML
+  const btnNext = document.getElementById("btnNext");
+  const btnPrev = document.getElementById("btnPrev");
+
+  if (btnNext) {
+    btnNext.onclick = () => {
+      audioFix.play().catch(() => {});
+      widget.next();
+    };
+  }
+
+  if (btnPrev) {
+    btnPrev.onclick = () => {
+      audioFix.play().catch(() => {});
+      widget.prev();
+    };
+  }
 });
