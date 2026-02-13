@@ -10,6 +10,14 @@ const statusDisplay = document.getElementById("status");       // Texto da músi
 // Ele serve para o Android não "matar" o player quando você bloqueia a tela.
 const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
 audioFix.loop = true;
+audioFix.volume = 0.01; // Quase mudo para não interferir
+
+// Essa linha tenta avisar ao sistema para ignorar este áudio específico
+if ('mediaSession' in navigator) {
+  audioFix.onplay = () => {
+    // Não deixamos o audioFix assumir o controle da tela de bloqueio
+  };
+}
 
 // Barra de Progresso 
 let isDragging = false; 
@@ -193,6 +201,16 @@ function formatarTempo(ms) {
 function configurarBarraProgresso() {
   // O evento PLAY_PROGRESS acontece o tempo todo enquanto a música toca
   widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+
+    // Dentro do widget.bind(SC.Widget.Events.PLAY_PROGRESS...
+if ("setPositionState" in navigator.mediaSession) {
+  navigator.mediaSession.setPositionState({
+    duration: duracaoTotal / 1000,
+    playbackRate: 1,
+    position: posicaoAtual / 1000
+  });
+}
+
     // Se o usuário NÃO estiver arrastando a barra, nós a atualizamos
     if (!isDragging && progressSlider) {
       const posicaoAtual = data.currentPosition; // tempo atual
@@ -295,39 +313,42 @@ configurarFimDaMusica();
 function configurarTelaDeBloqueio() {
   if ('mediaSession' in navigator) {
     
-    // Toda vez que a música mudar, atualizamos os dados no Android
     widget.bind(SC.Widget.Events.PLAY, () => {
       widget.getCurrentSound((sound) => {
         if (sound) {
           const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
           
+          // 1. Informamos os dados da música
           navigator.mediaSession.metadata = new MediaMetadata({
             title: sound.title,
             artist: "Colo de Deus",
             album: "CloudCast Player",
             artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
           });
+
+          // 2. IMPORTANTE: Atualizamos a duração total na tela de bloqueio
+          widget.getDuration((duration) => {
+            if ("setPositionState" in navigator.mediaSession) {
+              navigator.mediaSession.setPositionState({
+                duration: duration / 1000,
+                playbackRate: 1,
+                position: 0
+              });
+            }
+          });
         }
       });
     });
 
-    // Configura os botões da tela de bloqueio
-    navigator.mediaSession.setActionHandler('play', () => {
-      audioFix.play();
-      widget.play();
-    });
+    // 3. Forçamos os handlers de Próximo e Anterior (isso remove os de 10s no iOS)
+    navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
+    navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { widget.prev(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { widget.next(); });
 
-    navigator.mediaSession.setActionHandler('pause', () => {
-      widget.pause();
-    });
-
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      widget.prev();
-    });
-
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      widget.next();
-    });
+    // Desativamos explicitamente os botões de pular segundos (seek)
+    navigator.mediaSession.setActionHandler('seekbackward', null);
+    navigator.mediaSession.setActionHandler('seekforward', null);
   }
 }
 
