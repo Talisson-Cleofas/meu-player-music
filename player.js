@@ -194,40 +194,38 @@ function formatarTempo(ms) {
   const totalSegundos = Math.floor(ms / 1000);
   const minutos = Math.floor(totalSegundos / 60);
   const segundos = totalSegundos % 60;
-  return `${minutos}:${segundos < 10 ? "0" : ""}${segundos}`;
+  // Garante que os segundos sempre tenham dois dígitos (ex: 0:05 em vez de 0:5)
+  return minutos + ":" + (segundos < 10 ? "0" : "") + segundos;
 }
 
 // 2. Monitorar o progresso da música
 function configurarBarraProgresso() {
   // O evento PLAY_PROGRESS acontece o tempo todo enquanto a música toca
-  widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+  if (!isDragging) {
+    const atual = data.currentPosition;
+    
+    widget.getDuration((total) => {
+      if (total > 0) {
+        // Atualiza o Slider da aplicação
+        progressSlider.value = (atual / total) * 100;
 
-    // Dentro do widget.bind(SC.Widget.Events.PLAY_PROGRESS...
-if ("setPositionState" in navigator.mediaSession) {
-  navigator.mediaSession.setPositionState({
-    duration: duracaoTotal / 1000,
-    playbackRate: 1,
-    position: posicaoAtual / 1000
-  });
-}
+        // ATUALIZA OS MINUTOS NA TELA (O que tinha sumido)
+        if (currentTimeDisplay) currentTimeDisplay.innerText = formatarTempo(atual);
+        if (totalDurationDisplay) totalDurationDisplay.innerText = formatarTempo(total);
 
-    // Se o usuário NÃO estiver arrastando a barra, nós a atualizamos
-    if (!isDragging && progressSlider) {
-      const posicaoAtual = data.currentPosition; // tempo atual
-      
-      widget.getDuration((duracaoTotal) => {
-        if (duracaoTotal > 0) {
-          // Calculamos a porcentagem (0 a 100)
-          const porcentagem = (posicaoAtual / duracaoTotal) * 100;
-          progressSlider.value = porcentagem;
-          
-          // Atualizamos os textos de tempo na tela
-          if (currentTimeDisplay) currentTimeDisplay.innerText = formatarTempo(posicaoAtual);
-          if (totalDurationDisplay) totalDurationDisplay.innerText = formatarTempo(duracaoTotal);
+        // Atualiza a barra na tela de bloqueio do iOS
+        if ('mediaSession' in navigator && "setPositionState" in navigator.mediaSession) {
+          navigator.mediaSession.setPositionState({
+            duration: total / 1000,
+            playbackRate: 1,
+            position: atual / 1000
+          });
         }
-      });
-    }
-  });
+      }
+    });
+  }
+});
 
   // 3. Permitir que o usuário "arraste" a música
   if (progressSlider) {
@@ -313,42 +311,33 @@ configurarFimDaMusica();
 function configurarTelaDeBloqueio() {
   if ('mediaSession' in navigator) {
     
-    widget.bind(SC.Widget.Events.PLAY, () => {
-      widget.getCurrentSound((sound) => {
-        if (sound) {
-          const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
-          
-          // 1. Informamos os dados da música
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: sound.title,
-            artist: "Colo de Deus",
-            album: "CloudCast Player",
-            artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
-          });
-
-          // 2. IMPORTANTE: Atualizamos a duração total na tela de bloqueio
-          widget.getDuration((duration) => {
-            if ("setPositionState" in navigator.mediaSession) {
-              navigator.mediaSession.setPositionState({
-                duration: duration / 1000,
-                playbackRate: 1,
-                position: 0
-              });
-            }
-          });
-        }
-      });
-    });
-
-    // 3. Forçamos os handlers de Próximo e Anterior (isso remove os de 10s no iOS)
+    // 1. Registramos os comandos IMEDIATAMENTE
+    // Isso diz ao iOS: "Este player TEM botões de avançar e voltar"
     navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
     navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
     navigator.mediaSession.setActionHandler('previoustrack', () => { widget.prev(); });
     navigator.mediaSession.setActionHandler('nexttrack', () => { widget.next(); });
 
-    // Desativamos explicitamente os botões de pular segundos (seek)
+    // 2. Desativamos explicitamente os botões de "pular 10s" (seek)
+    // No iOS, se esses handlers forem null, ele tenta mostrar os de próxima música
     navigator.mediaSession.setActionHandler('seekbackward', null);
     navigator.mediaSession.setActionHandler('seekforward', null);
+
+    // 3. Atualizamos a capa e o título sempre que a música mudar
+    widget.bind(SC.Widget.Events.PLAY, () => {
+      widget.getCurrentSound((sound) => {
+        if (sound) {
+          const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
+          
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: sound.title,
+            artist: "Colo de Deus",
+            album: "CloudCast",
+            artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
+          });
+        }
+      });
+    });
   }
 }
 
