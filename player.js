@@ -229,7 +229,7 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 });
 
 // ==========================================
-// 6. TELA DE BLOQUEIO
+// 6. TELA DE BLOQUEIO (Corrigido para Android/iOS)
 // ==========================================
 function atualizarMediaSession(sound) {
     if ('mediaSession' in navigator) {
@@ -241,8 +241,15 @@ function atualizarMediaSession(sound) {
             artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
         });
 
-        navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
-        navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
+        navigator.mediaSession.setActionHandler('play', () => { 
+            audioFix.play().catch(() => {}); // Essencial para acordar o sistema
+            widget.play(); 
+        });
+        
+        navigator.mediaSession.setActionHandler('pause', () => { 
+            widget.pause(); 
+        });
+
         navigator.mediaSession.setActionHandler('previoustrack', () => { btnPrev.click(); });
         navigator.mediaSession.setActionHandler('nexttrack', () => { btnNext.click(); });
         navigator.mediaSession.setActionHandler('seekbackward', null);
@@ -289,3 +296,24 @@ function atualizarPlaylistVisual() {
         });
     });
 }
+
+// ==========================================
+// 8. REGISTRO DO APP (No final do arquivo)
+// ==========================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('CloudCast: App Registrado!'))
+            .catch(err => console.log('CloudCast: Erro no registro', err));
+    });
+}
+
+// Botão carregar link manual (Opcional)
+const btnLoad = document.getElementById("btnLoad");
+if(btnLoad) {
+    btnLoad.onclick = () => {
+        const url = document.getElementById("videoUrl").value;
+        if(url) carregarAlbum(url);
+    };
+}
+
