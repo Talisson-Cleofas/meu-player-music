@@ -209,6 +209,7 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 function atualizarMediaSession(sound) {
     if ('mediaSession' in navigator) {
         const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
+        
         navigator.mediaSession.metadata = new MediaMetadata({
             title: sound.title,
             artist: "Colo de Deus",
@@ -216,10 +217,30 @@ function atualizarMediaSession(sound) {
             artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
         });
 
+        // 1. Handlers de Play/Pause
         navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
         navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
-        navigator.mediaSession.setActionHandler('previoustrack', () => { widget.prev(); });
-        navigator.mediaSession.setActionHandler('nexttrack', () => { widget.next(); });
+
+        // 2. Handlers de Pulo (FORÇAR EXIBIÇÃO DAS SETAS)
+        navigator.mediaSession.setActionHandler('previoustrack', () => { 
+            widget.prev(); 
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { 
+            widget.next(); 
+        });
+
+        // 3. DESATIVAR explicitamente os botões de 10/30 segundos
+        // Definir como null remove esses botões da interface em muitos sistemas
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+        
+        // Opcional: Desativar também o seekto (barra de busca da tela de bloqueio) 
+        // se quiser evitar conflitos, mas pode manter se desejar.
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime) {
+                widget.seekTo(details.seekTime * 1000);
+            }
+        });
     }
 }
 
