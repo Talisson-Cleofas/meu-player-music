@@ -1,4 +1,3 @@
-
 // 1. Pegamos os elementos do seu HTML pelos IDs
 const widgetIframe = document.getElementById("sc-widget");
 const widget = SC.Widget(widgetIframe); // Ativa a API do SoundCloud no seu Iframe
@@ -11,6 +10,14 @@ const statusDisplay = document.getElementById("status");       // Texto da músi
 // Ele serve para o Android não "matar" o player quando você bloqueia a tela.
 const audioFix = new Audio("https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3");
 audioFix.loop = true;
+audioFix.volume = 0.01; // Quase mudo para não interferir
+
+// Essa linha tenta avisar ao sistema para ignorar este áudio específico
+if ('mediaSession' in navigator) {
+  audioFix.onplay = () => {
+    // Não deixamos o audioFix assumir o controle da tela de bloqueio
+  };
+}
 
 // Barra de Progresso 
 let isDragging = false; 
@@ -65,10 +72,16 @@ function togglePlayback() {
 btnTogglePlay.onclick = togglePlayback;
 
 // 1. Sua lista de álbuns (exatamente como você tinha)
-
-// --- BIBLIOTECA DE ÁLBUNS ---
-
-
+const meusAlbuns = [
+  { nome: "Efeito Atomiko", url: "https://soundcloud.com/colodedeus/sets/efeito-atomiko-ao-vivo-no" },
+  { nome: "Camp Fire", url: "https://soundcloud.com/colodedeus/sets/camp-fire-ao-vivo" },
+  { nome: "Rahamim", url: "https://soundcloud.com/colodedeus/sets/rahamim-4" },
+  { nome: "AD10", url: "https://soundcloud.com/colodedeus/sets/adoracao-na-nossa-casa-e-1" },
+  { nome: "Secreto", url: "https://soundcloud.com/colodedeus/sets/secreto-33" },
+  { nome: "Deserto", url: "https://soundcloud.com/colodedeus/sets/deserto-5" },
+  { nome: "Intimidade", url: "https://soundcloud.com/colodedeus/sets/intimidade-28" },
+  { nome: "Confia", url: "https://soundcloud.com/colodedeus/sets/confia-8" },
+  { nome: "Esdras", url: "https://soundcloud.com/colodedeus/sets/esdras-6" },
   { nome: "Cordeiro 1", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-1-voz-e-violao" },
   { nome: "Cordeiro 2", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-parte-2-voz-e-violao" },
   { nome: "Cordeiro 3", url: "https://soundcloud.com/colodedeus/sets/o-cordeiro-o-leao-e-o-trono-4" },
@@ -106,7 +119,6 @@ function carregarAlbum(url) {
         if (sound) {
           statusDisplay.innerText = sound.title;
         }
-
       });
     }, 1000);
     
@@ -114,7 +126,6 @@ function carregarAlbum(url) {
     widget.unbind(SC.Widget.Events.READY);
   });
 }
-
 
 // 3. Função que desenha os botões na tela
 function desenharBotoes() {
@@ -148,7 +159,6 @@ function monitorarMusica() {
     // Pedimos ao Widget as informações da música atual (Sound Object)
     widget.getCurrentSound((sound) => {
       if (sound) {
-
         // 1. Atualiza o texto na sua tela (o ID 'status')
         statusDisplay.innerText = sound.title;
         
@@ -157,7 +167,6 @@ function monitorarMusica() {
         document.title = "▶ " + sound.title;
         
         console.log("Tocando agora: " + sound.title);
-
       }
     });
     
@@ -169,7 +178,6 @@ function monitorarMusica() {
   widget.bind(SC.Widget.Events.PAUSE, () => {
     document.title = "CloudCast Player"; // Volta ao nome original
     if (playIcon) playIcon.className = "fas fa-play";
-
   });
 }
 
@@ -193,6 +201,16 @@ function formatarTempo(ms) {
 function configurarBarraProgresso() {
   // O evento PLAY_PROGRESS acontece o tempo todo enquanto a música toca
   widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
+
+    // Dentro do widget.bind(SC.Widget.Events.PLAY_PROGRESS...
+if ("setPositionState" in navigator.mediaSession) {
+  navigator.mediaSession.setPositionState({
+    duration: duracaoTotal / 1000,
+    playbackRate: 1,
+    position: posicaoAtual / 1000
+  });
+}
+
     // Se o usuário NÃO estiver arrastando a barra, nós a atualizamos
     if (!isDragging && progressSlider) {
       const posicaoAtual = data.currentPosition; // tempo atual
@@ -210,7 +228,7 @@ function configurarBarraProgresso() {
       });
     }
   });
-  
+
   // 3. Permitir que o usuário "arraste" a música
   if (progressSlider) {
     // Quando o usuário começa a arrastar
@@ -295,39 +313,42 @@ configurarFimDaMusica();
 function configurarTelaDeBloqueio() {
   if ('mediaSession' in navigator) {
     
-    // Toda vez que a música mudar, atualizamos os dados no Android
     widget.bind(SC.Widget.Events.PLAY, () => {
       widget.getCurrentSound((sound) => {
         if (sound) {
           const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
           
+          // 1. Informamos os dados da música
           navigator.mediaSession.metadata = new MediaMetadata({
             title: sound.title,
             artist: "Colo de Deus",
             album: "CloudCast Player",
             artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
           });
+
+          // 2. IMPORTANTE: Atualizamos a duração total na tela de bloqueio
+          widget.getDuration((duration) => {
+            if ("setPositionState" in navigator.mediaSession) {
+              navigator.mediaSession.setPositionState({
+                duration: duration / 1000,
+                playbackRate: 1,
+                position: 0
+              });
+            }
+          });
         }
       });
     });
 
-    // Configura os botões da tela de bloqueio
-    navigator.mediaSession.setActionHandler('play', () => {
-      audioFix.play();
-      widget.play();
-    });
+    // 3. Forçamos os handlers de Próximo e Anterior (isso remove os de 10s no iOS)
+    navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
+    navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { widget.prev(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { widget.next(); });
 
-    navigator.mediaSession.setActionHandler('pause', () => {
-      widget.pause();
-    });
-
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      widget.prev();
-    });
-
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      widget.next();
-    });
+    // Desativamos explicitamente os botões de pular segundos (seek)
+    navigator.mediaSession.setActionHandler('seekbackward', null);
+    navigator.mediaSession.setActionHandler('seekforward', null);
   }
 }
 
