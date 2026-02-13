@@ -123,22 +123,41 @@ btnTogglePlay.onclick = (e) => {
     });
 };
 
-// Botão Anterior unificado
-btnPrev.onclick = (e) => {
-    e.preventDefault();
-    destacarBotao('btnPrev');
-    audioFix.play().catch(() => {});
-    widget.prev();
-};
-
-// Botão Próximo unificado
+// BOTÃO PRÓXIMO (Corrigido)
 btnNext.onclick = (e) => {
     e.preventDefault();
     destacarBotao('btnNext');
     audioFix.play().catch(() => {});
-    widget.next();
+
+    widget.getSounds((sounds) => {
+        widget.getCurrentSoundIndex((index) => {
+            if (index === sounds.length - 1) {
+                // Se for a última música, volta para a primeira
+                widget.skip(0);
+            } else {
+                widget.next();
+            }
+        });
+    });
 };
 
+// BOTÃO ANTERIOR (Corrigido)
+btnPrev.onclick = (e) => {
+    e.preventDefault();
+    destacarBotao('btnPrev');
+    audioFix.play().catch(() => {});
+
+    widget.getCurrentSoundIndex((index) => {
+        if (index === 0) {
+            // Se estiver na primeira, vai para a última
+            widget.getSounds((sounds) => {
+                widget.skip(sounds.length - 1);
+            });
+        } else {
+            widget.prev();
+        }
+    });
+};
 // ==========================================
 // 5. EVENTOS DO WIDGET (MONITORAMENTO)
 // ==========================================
@@ -193,11 +212,19 @@ if (progressSlider) {
 }
 
 // Loop do álbum
+// Quando a música acabar sozinha, pula para a próxima ou volta para a primeira
 widget.bind(SC.Widget.Events.FINISH, () => {
     widget.getSounds((sounds) => {
         widget.getCurrentSoundIndex((index) => {
             if (index === sounds.length - 1) {
-                setTimeout(() => { widget.skip(0); }, 100);
+                // Acabou o álbum? Volta ao início
+                setTimeout(() => { 
+                    widget.skip(0); 
+                    widget.play(); // Garante que comece a tocar
+                }, 100);
+            } else {
+                // O widget do SC geralmente pula sozinho, mas forçamos aqui para garantir
+                widget.next();
             }
         });
     });
@@ -223,11 +250,11 @@ function atualizarMediaSession(sound) {
 
         // 2. Handlers de Pulo (FORÇAR EXIBIÇÃO DAS SETAS)
         navigator.mediaSession.setActionHandler('previoustrack', () => { 
-            widget.prev(); 
-        });
+        btnPrev.click(); // Reutiliza a lógica do botão físico
+      });
         navigator.mediaSession.setActionHandler('nexttrack', () => { 
-            widget.next(); 
-        });
+        btnNext.click(); // Reutiliza a lógica do botão físico
+      });
 
         // 3. DESATIVAR explicitamente os botões de 10/30 segundos
         // Definir como null remove esses botões da interface em muitos sistemas
