@@ -260,13 +260,11 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 });
 
 // ==========================================
-// 6. TELA DE BLOQUEIO (MediaSession)
+// 6. TELA DE BLOQUEIO (MediaSession) - FORÇANDO SETAS
 // ==========================================
 function atualizarMediaSession(sound) {
   if ("mediaSession" in navigator) {
-    const capa = sound.artwork_url
-      ? sound.artwork_url.replace("-large", "-t500x500")
-      : "";
+    const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
     navigator.mediaSession.metadata = new MediaMetadata({
       title: sound.title,
       artist: "Colo de Deus",
@@ -274,9 +272,9 @@ function atualizarMediaSession(sound) {
       artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }],
     });
 
-    // Handlers corrigidos: Comando direto para evitar delay de clique duplo
+    // 1. Handlers de Play/Pause
     navigator.mediaSession.setActionHandler("play", () => {
-      audioFix.play().catch(() => {});
+      audioFix.play().catch(() => {}); 
       widget.play();
     });
 
@@ -284,11 +282,24 @@ function atualizarMediaSession(sound) {
       widget.pause();
     });
 
-    navigator.mediaSession.setActionHandler("previoustrack", () => {
-      btnPrev.click();
+    // 2. Handlers de Pulo (Garante que as setas apareçam)
+    navigator.mediaSession.setActionHandler("previoustrack", () => { 
+      btnPrev.click(); 
     });
-    navigator.mediaSession.setActionHandler("nexttrack", () => {
-      btnNext.click();
+    navigator.mediaSession.setActionHandler("nexttrack", () => { 
+      btnNext.click(); 
+    });
+
+    // 3. DESATIVAR OS BOTÕES DE SEGUNDOS (O segredo está aqui)
+    // Definir como null remove os botões de +10s / -10s da tela
+    navigator.mediaSession.setActionHandler("seekbackward", null);
+    navigator.mediaSession.setActionHandler("seekforward", null);
+
+    // 4. Barra de busca (Opcional: permite arrastar o tempo na tela de bloqueio)
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (details.seekTime) {
+        widget.seekTo(details.seekTime * 1000);
+      }
     });
   }
 }
