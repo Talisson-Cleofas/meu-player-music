@@ -365,6 +365,12 @@ li.active-track {
     animation: bounceEq 0.5s ease-in-out infinite alternate;
 }
 
+.now-playing-equalizer.paused span {
+    animation-play-state: paused;
+    height: 4px; /* Opcional: força elas a ficarem baixinhas ao pausar */
+    transition: height 0.3s ease;
+}
+
 .now-playing-equalizer span:nth-child(1) { height: 10px; animation-duration: 0.4s; }
 .now-playing-equalizer span:nth-child(2) { height: 6px; animation-duration: 0.2s; }
 .now-playing-equalizer span:nth-child(3) { height: 8px; animation-duration: 0.3s; }
