@@ -98,8 +98,6 @@ function desenharBotoes() {
 }
 desenharBotoes();
 
-// --- FUNÇÕES DE CONTROLE UNIFICADAS ---
-
 function destacarBotao(botaoId) {
     const btn = document.getElementById(botaoId);
     if (!btn) return;
@@ -107,7 +105,7 @@ function destacarBotao(botaoId) {
     setTimeout(() => btn.classList.remove('btn-highlight'), 400);
 }
 
-// Botão Play/Pause unificado
+// Botão Play/Pause
 btnTogglePlay.onclick = (e) => {
     e.preventDefault();
     destacarBotao('btnTogglePlay');
@@ -115,24 +113,20 @@ btnTogglePlay.onclick = (e) => {
         if (paused) {
             audioFix.play().catch(() => {});
             widget.play();
-            playIcon.className = "fas fa-pause";
         } else {
             widget.pause();
-            playIcon.className = "fas fa-play";
         }
     });
 };
 
-// BOTÃO PRÓXIMO (Corrigido)
+// Botão Próximo
 btnNext.onclick = (e) => {
     e.preventDefault();
     destacarBotao('btnNext');
     audioFix.play().catch(() => {});
-
     widget.getSounds((sounds) => {
         widget.getCurrentSoundIndex((index) => {
             if (index === sounds.length - 1) {
-                // Se for a última música, volta para a primeira
                 widget.skip(0);
             } else {
                 widget.next();
@@ -141,15 +135,13 @@ btnNext.onclick = (e) => {
     });
 };
 
-// BOTÃO ANTERIOR (Corrigido)
+// Botão Anterior
 btnPrev.onclick = (e) => {
     e.preventDefault();
     destacarBotao('btnPrev');
     audioFix.play().catch(() => {});
-
     widget.getCurrentSoundIndex((index) => {
         if (index === 0) {
-            // Se estiver na primeira, vai para a última
             widget.getSounds((sounds) => {
                 widget.skip(sounds.length - 1);
             });
@@ -158,8 +150,9 @@ btnPrev.onclick = (e) => {
         }
     });
 };
+
 // ==========================================
-// 5. EVENTOS DO WIDGET (MONITORAMENTO)
+// 5. EVENTOS DO WIDGET
 // ==========================================
 
 widget.bind(SC.Widget.Events.PLAY, () => {
@@ -171,15 +164,24 @@ widget.bind(SC.Widget.Events.PLAY, () => {
             atualizarPlaylistVisual(); 
         }
     });
+    
+    // Ativa animação das barrinhas
+    const eq = document.querySelector('.now-playing-equalizer');
+    if (eq) eq.classList.remove('paused');
+
     if (playIcon) playIcon.className = "fas fa-pause";
 });
 
 widget.bind(SC.Widget.Events.PAUSE, () => {
     document.title = "CloudCast Player";
+    
+    // Pausa animação das barrinhas
+    const eq = document.querySelector('.now-playing-equalizer');
+    if (eq) eq.classList.add('paused');
+
     if (playIcon) playIcon.className = "fas fa-play";
 });
 
-// Barra de Progresso
 widget.bind(SC.Widget.Events.PLAY_PROGRESS, (data) => {
     if (!isDragging) {
         const atual = data.currentPosition;
@@ -211,19 +213,15 @@ if (progressSlider) {
     };
 }
 
-// Loop do álbum
-// Quando a música acabar sozinha, pula para a próxima ou volta para a primeira
 widget.bind(SC.Widget.Events.FINISH, () => {
     widget.getSounds((sounds) => {
         widget.getCurrentSoundIndex((index) => {
             if (index === sounds.length - 1) {
-                // Acabou o álbum? Volta ao início
                 setTimeout(() => { 
                     widget.skip(0); 
-                    widget.play(); // Garante que comece a tocar
+                    widget.play(); 
                 }, 100);
             } else {
-                // O widget do SC geralmente pula sozinho, mas forçamos aqui para garantir
                 widget.next();
             }
         });
@@ -231,12 +229,11 @@ widget.bind(SC.Widget.Events.FINISH, () => {
 });
 
 // ==========================================
-// 6. TELA DE BLOQUEIO (MediaSession)
+// 6. TELA DE BLOQUEIO
 // ==========================================
 function atualizarMediaSession(sound) {
     if ('mediaSession' in navigator) {
         const capa = sound.artwork_url ? sound.artwork_url.replace("-large", "-t500x500") : "";
-        
         navigator.mediaSession.metadata = new MediaMetadata({
             title: sound.title,
             artist: "Colo de Deus",
@@ -244,35 +241,17 @@ function atualizarMediaSession(sound) {
             artwork: [{ src: capa, sizes: "500x500", type: "image/jpg" }]
         });
 
-        // 1. Handlers de Play/Pause
         navigator.mediaSession.setActionHandler('play', () => { widget.play(); });
         navigator.mediaSession.setActionHandler('pause', () => { widget.pause(); });
-
-        // 2. Handlers de Pulo (FORÇAR EXIBIÇÃO DAS SETAS)
-        navigator.mediaSession.setActionHandler('previoustrack', () => { 
-        btnPrev.click(); // Reutiliza a lógica do botão físico
-      });
-        navigator.mediaSession.setActionHandler('nexttrack', () => { 
-        btnNext.click(); // Reutiliza a lógica do botão físico
-      });
-
-        // 3. DESATIVAR explicitamente os botões de 10/30 segundos
-        // Definir como null remove esses botões da interface em muitos sistemas
+        navigator.mediaSession.setActionHandler('previoustrack', () => { btnPrev.click(); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { btnNext.click(); });
         navigator.mediaSession.setActionHandler('seekbackward', null);
         navigator.mediaSession.setActionHandler('seekforward', null);
-        
-        // Opcional: Desativar também o seekto (barra de busca da tela de bloqueio) 
-        // se quiser evitar conflitos, mas pode manter se desejar.
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime) {
-                widget.seekTo(details.seekTime * 1000);
-            }
-        });
     }
 }
 
 // ==========================================
-// 7. LISTA VISUAL (PLAYLIST)
+// 7. PLAYLIST VISUAL
 // ==========================================
 function atualizarPlaylistVisual() {
     const playlistView = document.getElementById("playlistView");
@@ -295,6 +274,12 @@ function atualizarPlaylistVisual() {
                     const eq = document.createElement("div");
                     eq.className = "now-playing-equalizer";
                     eq.innerHTML = "<span></span><span></span><span></span>";
+                    
+                    // Se estiver pausado ao criar a lista, já aplica a classe 'paused'
+                    widget.isPaused((paused) => {
+                        if (paused) eq.classList.add('paused');
+                    });
+
                     li.appendChild(eq);
                 }
 
